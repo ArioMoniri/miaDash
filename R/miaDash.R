@@ -51,7 +51,7 @@ miaDash <- function() {
 #' @importFrom mia taxonomyRanks
 #' @importFrom SummarizedExperiment rowData colData
 #' @importFrom SingleCellExperiment reducedDims
-.launch_isee <- function(FUN, initial, session, rObjects) {
+.launch_isee <- function(FUN, initial, session, rObjects, input) {  # Added input parameter
     # nocov start
     tse <- rObjects$tse
     current_exp <- .get_experiment(tse, input$experiment_choice)
