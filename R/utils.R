@@ -76,17 +76,30 @@
 #' @rdname utils
 #' @importFrom S4Vectors isEmpty
 #' @importFrom methods is
-.check_panel <- function(se, panel_list, panel_class, panel_fun, wtext) {
-  
+#' @importFrom SingleCellExperiment altExp
+.check_panel <- function(se, panel_list, panel_class, panel_fun, exp_name = "main") {
+    # Get the appropriate experiment
+    current_exp <- .get_experiment(se, exp_name)
+    
     no_keep <- unlist(lapply(panel_list, function(x) is(x, panel_class)))
   
-    if( any(no_keep) && (is.null(panel_fun(se)) || isEmpty(panel_fun(se))) ){
+    if( any(no_keep) && (is.null(panel_fun(current_exp)) || isEmpty(panel_fun(current_exp))) ){
         panel_list <- panel_list[!no_keep]
         warning("no valid ", as.character(substitute(panel_fun)),
             " fields for ", panel_class, call. = FALSE)
     }
   
     return(panel_list)
+}
+
+#' @rdname utils
+#' @importFrom SingleCellExperiment altExp
+.get_experiment <- function(se, exp_name) {
+    if(exp_name == "main" || is.null(exp_name)) {
+        return(se)
+    } else {
+        return(altExp(se, exp_name))
+    }
 }
 
 #' @rdname utils
@@ -97,3 +110,22 @@ default_panels <- c("RowDataTable", "ColumnDataTable", "RowTreePlot",
 #' @rdname utils
 other_panels <- c("LoadingPlot", "ColumnTreePlot", "RDAPlot", "ColumnDataPlot",
     "RowDataPlot")
+
+#' @rdname utils
+altexp_panels <- c("AbundancePlot", "ComplexHeatmapPlot", "RowDataTable")
+
+#' @rdname utils
+altexp_compatible_functions <- c(
+    "agglomerateByRank",
+    "transformAssay", 
+    "addAlpha",
+    "runPCA",
+    "runMDS",
+    "runNMDS",
+    "runRDA"
+)
+
+#' @rdname utils
+.filter_panels_by_experiment <- function(panels, allowed_panels) {
+    panels[panels %in% allowed_panels]
+}
