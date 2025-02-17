@@ -24,6 +24,7 @@
 #' @importFrom iSEE iSEE
 #' @importFrom utils packageVersion
 #' @importFrom htmltools tags
+#' @importFrom SingleCellExperiment altExp altExpNames
 miaDash <- function() {
     
     addResourcePath("assets", system.file("assets", package = "miaDash"))
@@ -51,21 +52,40 @@ miaDash <- function() {
 #' @importFrom SummarizedExperiment rowData colData
 #' @importFrom SingleCellExperiment reducedDims
 .launch_isee <- function(FUN, initial, session, rObjects) {
-
     # nocov start
     tse <- rObjects$tse
-  
-    initial <- lapply(initial, function(x) eval(parse(text = paste0(x, "()"))))
+    current_exp <- .get_experiment(tse, input$experiment_choice)
     
-    initial <- .check_panel(tse, initial, "RowDataTable", rowData)
-    initial <- .check_panel(tse, initial, "ColumnDataTable", colData)
-    initial <- .check_panel(tse, initial, "RowTreePlot", rowLinks)
-    initial <- .check_panel(tse, initial, "AbundancePlot", taxonomyRanks)
-    initial <- .check_panel(tse, initial, "ReducedDimensionPlot", reducedDims)
-    initial <- .check_panel(tse, initial, "LoadingPlot", reducedDims)
-    initial <- .check_panel(tse, initial, "ColumnTreePlot", colLinks)
+    # Filter panels based on experiment type
+    if(input$experiment_choice != "main") {
+        initial <- .filter_panels_by_experiment(initial, altexp_panels)
+    }
   
-    FUN(SE = tse, INIT = initial)#, EXTRA = initial)
+    initial <- lapply(initial, function(x) {
+        panel <- eval(parse(text = paste0(x, "()")))
+        if(inherits(panel, "DimensionReducedPanel")) {
+            panel$ExperimentName <- input$experiment_choice
+        }
+        return(panel)
+    })
+    
+    # Check panels for current experiment
+    initial <- .check_panel(tse, initial, "RowDataTable", rowData, 
+                          input$experiment_choice)
+    initial <- .check_panel(tse, initial, "ColumnDataTable", colData, 
+                          input$experiment_choice)
+    initial <- .check_panel(tse, initial, "RowTreePlot", rowLinks, 
+                          input$experiment_choice)
+    initial <- .check_panel(tse, initial, "AbundancePlot", taxonomyRanks, 
+                          input$experiment_choice)
+    initial <- .check_panel(tse, initial, "ReducedDimensionPlot", reducedDims, 
+                          input$experiment_choice)
+    initial <- .check_panel(tse, initial, "LoadingPlot", reducedDims, 
+                          input$experiment_choice)
+    initial <- .check_panel(tse, initial, "ColumnTreePlot", colLinks, 
+                          input$experiment_choice)
+  
+    FUN(SE = current_exp, INIT = initial)
   
     enable("iSEE_INTERNAL_organize_panels")  # organize panels
     enable("iSEE_INTERNAL_link_graph")       # link graph
@@ -74,7 +94,7 @@ miaDash <- function() {
     enable("iSEE_INTERNAL_panel_settings")   # panel settings
     enable("iSEE_INTERNAL_open_vignette")    # open vignette
     enable("iSEE_INTERNAL_session_info")     # session info
-    enable("iSEE_INTERNAL_citation_info")    # citation info
+    enable("iSEE_INTERNAL_citation_info")    # citation info 
   
     invisible(NULL)
     # nocov end
