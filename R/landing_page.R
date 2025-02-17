@@ -70,6 +70,31 @@
                                   label = "colTree:", placeholder = "col.tree",
                                   accept = c(".tree", ".tre")),
                             div(style = "margin-top: -20px")),
+
+
+                        tabPanel(title = "Alternative Experiments", value = "altexp", br(),
+                            
+                            fileInput(inputId = "alt_assay", label = "Alternative Assays:",
+                                accept = ".csv", multiple = TRUE,
+                                placeholder = "alt_assay.csv"),
+                            div(style = "margin-top: -20px"),
+                            
+                            fileInput(inputId = "alt_coldata", label = "Alternative colData:",
+                                accept = ".csv", placeholder = "alt_coldata.csv"),
+                            div(style = "margin-top: -20px"),
+                        
+                            fileInput(inputId = "alt_rowdata", label = "Alternative rowData:",
+                                accept = ".csv", placeholder = "alt_rowdata.csv"),
+                            div(style = "margin-top: -20px"),
+                            
+                            textInput(inputId = "alt_name", 
+                                label = "Alternative Experiment Name:",
+                                placeholder = "e.g. agglomerated"),
+                            
+                            actionButton("add_altexp", "Add Alternative Experiment", 
+                                class = "btn-primary")),
+
+                                
                           
                         tabPanel(title = "Foreign", value = "foreign", br(),
                                   
@@ -202,6 +227,20 @@
                 fluidRow(box(id = "visualise.panel", title = "Visualise",
                     width = 4, status = "primary", solidHeader = TRUE,
                     collapsible = TRUE,
+
+                    selectInput(inputId = "experiment_choice", 
+                        label = "Select Experiment:",
+                        choices = c("Main" = "main"),
+                        selected = "main"),
+                    
+                    checkboxGroupInput(inputId = "altexp_panels",
+                        label = "Show in Panels:",
+                        choices = c("Abundance Plot" = "AbundancePlot",
+                                    "Heatmap" = "ComplexHeatmapPlot",
+                                    "Data Table" = "RowDataTable"),
+                        selected = "AbundancePlot"),
+                    
+                    hr(),
 
                     selectInput(inputId = "panels", label = "Panels:",
                         choices = c(default_panels, other_panels),
