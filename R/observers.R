@@ -20,6 +20,8 @@
 #' @importFrom biomformat read_biom
 #' @importFrom mia convertFromBIOM importMetaPhlAn
 #' @importFrom TreeSummarizedExperiment TreeSummarizedExperiment
+#' @importFrom SingleCellExperiment altExp altExpNames
+#' @importFrom SummarizedExperiment SummarizedExperiment
 .create_import_observers <- function(input, rObjects) {
   
     # nocov start
@@ -109,6 +111,37 @@
     # nocov end
   
     invisible(NULL)
+}
+
+#' @rdname create_observers
+.create_altexp_observers <- function(input, rObjects) {
+    observeEvent(input$add_altexp, {
+        isolate({
+            req(input$alt_assay)
+            req(input$alt_name)
+            
+            # Create alternative experiment
+            alt_assay_list <- lapply(input$alt_assay$datapath,
+                function(x) as.matrix(read.csv(x, row.names = 1)))
+            names(alt_assay_list) <- gsub(".csv", "", input$alt_assay$name)
+            
+            alt_coldata <- .set_optarg(input$alt_coldata$datapath,
+                alternative = DataFrame(row.names = colnames(alt_assay_list[[1]])),
+                loader = read.csv, row.names = 1)
+            
+            alt_rowdata <- .set_optarg(input$alt_rowdata$datapath,
+                loader = read.csv, row.names = 1)
+            
+            alt_exp <- SummarizedExperiment(
+                assays = alt_assay_list,
+                colData = alt_coldata,
+                rowData = alt_rowdata
+            )
+            
+            # Add to main experiment
+            altExp(rObjects$tse, input$alt_name) <- alt_exp
+        })
+    }, ignoreInit = TRUE, ignoreNULL = FALSE)
 }
 
 #' @rdname create_observers
@@ -324,6 +357,12 @@
           
           updateNumericInput(session, inputId = "ncomponents",
               max = nrow(rObjects$tse) - 1)
+        
+          # Update experiment choice dropdown with available alternative experiments
+          updateSelectInput(session, inputId = "experiment_choice",
+              choices = c("Main" = "main", 
+                         setNames(altExpNames(rObjects$tse), 
+                                 paste("Alt:", altExpNames(rObjects$tse)))))
         
       }
     
