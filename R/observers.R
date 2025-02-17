@@ -337,35 +337,40 @@
   
     # nocov start
     observe({
-      
-      if( isS4(rObjects$tse) ){
-        
-          updateSelectInput(session, inputId = "subassay",
-              choices = assayNames(rObjects$tse))
-        
-          updateSelectInput(session, inputId = "taxrank",
-              choices = taxonomyRanks(rObjects$tse))
-          
-          updateSelectInput(session, inputId = "assay.type",
-              choices = assayNames(rObjects$tse))
-          
-          updateSelectInput(session, inputId = "estimate.assay",
-              choices = assayNames(rObjects$tse))
-          
-          updateSelectInput(session, inputId = "estimate.assay",
-              choices = assayNames(rObjects$tse))
-          
-          updateNumericInput(session, inputId = "ncomponents",
-              max = nrow(rObjects$tse) - 1)
-        
-          # Update experiment choice dropdown with available alternative experiments
-          updateSelectInput(session, inputId = "experiment_choice",
-              choices = c("Main" = "main", 
-                         setNames(altExpNames(rObjects$tse), 
-                                 paste("Alt:", altExpNames(rObjects$tse)))))
-        
-      }
-    
+        if(isS4(rObjects$tse)) {
+            # Get available alternative experiments
+            alt_exps <- altExpNames(rObjects$tse)
+            
+            # Create choices list
+            choices <- c("Main" = "main")
+            if(length(alt_exps) > 0) {
+                alt_choices <- setNames(alt_exps, paste("Alt:", alt_exps))
+                choices <- c(choices, alt_choices)
+            }
+            
+            # Update existing choices
+            updateSelectInput(session, inputId = "experiment_choice",
+                choices = choices)
+                
+            # Rest of your existing updates...
+            updateSelectInput(session, inputId = "subassay",
+                choices = assayNames(rObjects$tse))
+            
+            updateSelectInput(session, inputId = "taxrank",
+                choices = taxonomyRanks(rObjects$tse))
+              
+            updateSelectInput(session, inputId = "assay.type",
+                choices = assayNames(rObjects$tse))
+              
+            updateSelectInput(session, inputId = "estimate.assay",
+                choices = assayNames(rObjects$tse))
+              
+            updateSelectInput(session, inputId = "estimate.assay",
+                choices = assayNames(rObjects$tse))
+              
+            updateNumericInput(session, inputId = "ncomponents",
+                max = nrow(rObjects$tse) - 1)
+        }
     })
     
     observeEvent(input$iSEE_INTERNAL_tour_steps, {
