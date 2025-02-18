@@ -149,6 +149,10 @@
                 box(id = "manipulate.panel", title = "Manipulate", width = 4,
                     status = "primary", solidHeader = TRUE, collapsible = TRUE,
 
+                    selectInput(inputId = "target_experiment",
+                        label = "Apply to:",
+                        choices = c("Main Experiment" = "main")),
+
                     tabsetPanel(id = "manipulate",
                           
                         tabPanel(title = "Subset", value = "subset", br(),
