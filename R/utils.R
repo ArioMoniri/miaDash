@@ -93,6 +93,25 @@
 }
 
 #' @rdname utils
+.create_agglomerated_experiments <- function(tse, levels) {
+    for(level in levels) {
+        alt_exp <- agglomerateByRank(tse, rank = level)
+        altExp(tse, paste0("agglomerated_", tolower(level))) <- alt_exp
+    }
+    return(tse)
+}
+
+#' @rdname utils
+.process_merged_file <- function(file_path) {
+    tse <- readRDS(file_path)
+    if(!is(tse, "TreeSummarizedExperiment")) {
+        stop("File must contain a TreeSummarizedExperiment object")
+    }
+    return(tse)
+}
+                             
+
+#' @rdname utils
 #' @importFrom SingleCellExperiment altExp
 .get_experiment <- function(se, exp_name) {
     if(exp_name == "main" || is.null(exp_name)) {
