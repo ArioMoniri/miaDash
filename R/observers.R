@@ -113,6 +113,33 @@
     invisible(NULL)
 }
 
+
+
+#' @rdname create_observers
+.create_merged_file_observers <- function(input, rObjects) {
+    observeEvent(input$merged_file, {
+        isolate({
+            tse <- .process_merged_file(input$merged_file$datapath)
+            
+            if(input$agglomeration_levels == "All") {
+                levels <- taxonomyRanks(tse)
+            } else if(input$agglomeration_levels == "Custom") {
+                levels <- input$custom_levels
+            } else {
+                levels <- character(0)
+            }
+            
+            if(length(levels) > 0) {
+                tse <- .create_agglomerated_experiments(tse, levels)
+            }
+            
+            rObjects$tse <- tse
+        })
+    })
+}
+
+
+          
 #' @rdname create_observers
 .create_altexp_observers <- function(input, rObjects) {
     observeEvent(input$add_altexp, {
