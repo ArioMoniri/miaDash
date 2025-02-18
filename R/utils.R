@@ -92,6 +92,45 @@
     return(panel_list)
 }
 
+
+#' @rdname utils
+#' @importFrom methods is
+#' @importFrom SummarizedExperiment colData rowData assays
+.validate_merged_file <- function(tse) {
+    # Check class
+    if (!is(tse, "TreeSummarizedExperiment")) {
+        stop("File must contain a TreeSummarizedExperiment object")
+    }
+    
+    # Check for required components
+    if (nrow(tse) == 0 || ncol(tse) == 0) {
+        stop("TreeSummarizedExperiment object must contain data")
+    }
+    
+    if (length(assays(tse)) == 0) {
+        stop("TreeSummarizedExperiment object must contain at least one assay")
+    }
+    
+    # Check for sample consistency
+    sample_names <- colnames(tse)
+    if (is.null(sample_names) || any(duplicated(sample_names))) {
+        stop("Sample names must be unique and non-null")
+    }
+    
+    # Check alternative experiments if present
+    if (length(altExpNames(tse)) > 0) {
+        for (alt_name in altExpNames(tse)) {
+            alt_exp <- altExp(tse, alt_name)
+            if (!identical(colnames(tse), colnames(alt_exp))) {
+                stop(sprintf("Alternative experiment '%s' must have the same samples as main experiment", alt_name))
+            }
+        }
+    }
+    
+    return(TRUE)
+}
+
+                             
 #' @rdname utils
 .validate_altexp <- function(tse, altexp) {
     # Check if samples match
