@@ -119,21 +119,35 @@
 .create_merged_file_observers <- function(input, rObjects) {
     observeEvent(input$merged_file, {
         isolate({
-            tse <- .process_merged_file(input$merged_file$datapath)
-            
-            if(input$agglomeration_levels == "All") {
-                levels <- taxonomyRanks(tse)
-            } else if(input$agglomeration_levels == "Custom") {
-                levels <- input$custom_levels
-            } else {
-                levels <- character(0)
-            }
-            
-            if(length(levels) > 0) {
-                tse <- .create_agglomerated_experiments(tse, levels)
-            }
-            
-            rObjects$tse <- tse
+            tryCatch({
+                tse <- .process_merged_file(input$merged_file$datapath)
+                
+                if(input$agglomeration_levels == "All") {
+                    levels <- taxonomyRanks(tse)
+                } else if(input$agglomeration_levels == "Custom") {
+                    levels <- input$custom_levels
+                } else {
+                    levels <- character(0)
+                }
+                
+                if(length(levels) > 0) {
+                    tse <- .create_agglomerated_experiments(tse, levels)
+                }
+                
+                rObjects$tse <- tse
+                
+                # Show success message
+                showNotification(
+                    "Merged file successfully loaded",
+                    type = "message"
+                )
+                
+            }, error = function(e) {
+                .print_message(
+                    title = "Error in merged file:",
+                    e$message
+                )
+            })
         })
     })
 }
