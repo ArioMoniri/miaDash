@@ -201,16 +201,19 @@
         }
       
         else if( input$manipulate == "agglomerate" ){
-          
             isolate({
-                
                 fun_args <- list(x = rObjects$tse, rank = input$taxrank)
-                rObjects$tse <- .update_tse(
-                     rObjects$tse, agglomerateByRank, fun_args
-                )
-              
+                
+                if(input$save_as_altexp && input$altexp_name != "") {
+                    # Create agglomerated version
+                    aggl_exp <- .update_tse(rObjects$tse, agglomerateByRank, fun_args)
+                    # Store as alternative experiment
+                    altExp(rObjects$tse, input$altexp_name) <- aggl_exp
+                } else {
+                    # Original behavior
+                    rObjects$tse <- .update_tse(rObjects$tse, agglomerateByRank, fun_args)
+                }
             })
-          
         } else if( input$manipulate == "transform" ){
 
             if( input$trans.method == "clr" && !input$pseudocount &&
