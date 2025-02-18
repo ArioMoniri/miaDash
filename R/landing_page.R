@@ -169,11 +169,16 @@
                                 step = 1)),
                   
                         tabPanel(title = "Agglomerate", value = "agglomerate",
-
                             br(),
-                  
                             selectInput(inputId = "taxrank",
-                                label = "Taxonomic rank:", choices = NULL)),
+                                label = "Taxonomic rank:", choices = NULL),
+                            # Add these new inputs here
+                            checkboxInput(inputId = "save_as_altexp",
+                                label = "Save as Alternative Experiment", 
+                                value = FALSE),
+                            textInput(inputId = "altexp_name",
+                                label = "Alternative Experiment Name:",
+                                placeholder = "e.g. genus_level")),
                   
                         tabPanel(title = "Transform", value = "transform", br(),
                   
