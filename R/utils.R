@@ -93,6 +93,23 @@
 }
 
 #' @rdname utils
+.validate_altexp <- function(tse, altexp) {
+    # Check if samples match
+    if(!identical(colnames(tse), colnames(altexp))) {
+        stop("Alternative experiment must have same samples as main experiment")
+    }
+    return(TRUE)
+}
+
+#' @rdname utils
+.merge_experiments <- function(tse, altexp, name) {
+    if(.validate_altexp(tse, altexp)) {
+        altExp(tse, name) <- altexp
+    }
+    return(tse)
+}                             
+
+#' @rdname utils
 .create_agglomerated_experiments <- function(tse, levels) {
     for(level in levels) {
         alt_exp <- agglomerateByRank(tse, rank = level)
