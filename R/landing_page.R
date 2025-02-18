@@ -94,6 +94,21 @@
                             actionButton("add_altexp", "Add Alternative Experiment", 
                                 class = "btn-primary")),
 
+
+                        tabPanel(title = "Merged Data", value = "merged", br(),
+                            fileInput(inputId = "merged_file", label = "Merged Dataset:",
+                                accept = ".rds", placeholder = "merged_dataset.rds"),
+                            selectInput(inputId = "agglomeration_levels",
+                                label = "Auto-create experiments for taxonomic levels:",
+                                choices = c("None", "All", "Custom"),
+                                selected = "None"),
+                            conditionalPanel(
+                                condition = "input.agglomeration_levels == 'Custom'",
+                                checkboxGroupInput(inputId = "custom_levels",
+                                    label = "Select levels:",
+                                    choices = c("Phylum", "Class", "Order", "Family", "Genus", "Species"))
+                            )),
+
                                 
                           
                         tabPanel(title = "Foreign", value = "foreign", br(),
