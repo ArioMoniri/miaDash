@@ -51,7 +51,7 @@ miaDash <- function() {
 #' @importFrom mia taxonomyRanks
 #' @importFrom SummarizedExperiment rowData colData
 #' @importFrom SingleCellExperiment reducedDims
-.launch_isee <- function(FUN, initial, session, rObjects, input) {  # Added input parameter
+.launch_isee <- function(FUN, initial, session, rObjects, input) {
     # nocov start
     tse <- rObjects$tse
     current_exp <- .get_experiment(tse, input$experiment_choice)
@@ -63,11 +63,34 @@ miaDash <- function() {
   
     initial <- lapply(initial, function(x) {
         panel <- eval(parse(text = paste0(x, "()")))
+        
+        # Configure panel based on experiment type
         if(inherits(panel, "DimensionReducedPanel")) {
             panel$ExperimentName <- input$experiment_choice
         }
+        
+        # Add feature set specific configurations
+        if(!is.null(input$experiment_choice) && 
+           input$experiment_choice != "main") {
+            panel$DataType <- "alternative"
+            
+            # Handle agglomerated data
+            if(grepl("^agglomerated_", input$experiment_choice)) {
+                panel$AggregationLevel <- sub("^agglomerated_", "", 
+                                            input$experiment_choice)
+            }
+            
+            # Configure specific panel types
+            if(inherits(panel, "AbundancePlot") || 
+               inherits(panel, "ComplexHeatmapPlot")) {
+                panel$ShowFeatureNames <- TRUE
+                panel$ShowAggregationLevel <- TRUE
+            }
+        }
+        
         return(panel)
     })
+    
     
     # Check panels for current experiment
     initial <- .check_panel(tse, initial, "RowDataTable", rowData, 
