@@ -35,7 +35,8 @@ miaDash <- function() {
             paste0("Microbiome Analysis Dashboard - v", packageVersion("miaDash")),
             tags$img(src = "assets/mia_logo.png", height = "40px", style = "margin-left: 10px"),
             style = "cursor: pointer; font-weight: 500",
-            onclick = "window.location='https://miadash-microbiome.2.rahtiapp.fi/'") 
+            onclick = "window.location.href='https://miadash-microbiome.2.rahtiapp.fi/'; window.location.reload(true);"
+        )
             
     )
 
