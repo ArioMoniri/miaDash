@@ -378,28 +378,46 @@
                 choices <- c(choices, alt_choices)
             }
             
-            # Update existing choices
+            # Update experiment choice inputs
             updateSelectInput(session, inputId = "experiment_choice",
                 choices = choices)
-                
-            # Rest of your existing updates...
+            
+            updateSelectInput(session, inputId = "target_experiment",
+                choices = choices)
+            
+            # Get current experiment
+            current_exp <- if(input$target_experiment != "main" && length(alt_exps) > 0) {
+                altExp(rObjects$tse, input$target_experiment)
+            } else {
+                rObjects$tse
+            }
+            
+            # Update assay choices based on current experiment
             updateSelectInput(session, inputId = "subassay",
-                choices = assayNames(rObjects$tse))
+                choices = assayNames(current_exp))
             
             updateSelectInput(session, inputId = "taxrank",
-                choices = taxonomyRanks(rObjects$tse))
+                choices = taxonomyRanks(current_exp))
               
             updateSelectInput(session, inputId = "assay.type",
-                choices = assayNames(rObjects$tse))
+                choices = assayNames(current_exp))
               
             updateSelectInput(session, inputId = "estimate.assay",
-                choices = assayNames(rObjects$tse))
+                choices = assayNames(current_exp))
               
-            updateSelectInput(session, inputId = "estimate.assay",
-                choices = assayNames(rObjects$tse))
-              
+            # Update UI elements based on experiment type
+            if(input$target_experiment != "main") {
+                if(grepl("^agglomerated_", input$target_experiment)) {
+                    # Disable certain operations for agglomerated experiments
+                    shinyjs::disable("save_as_altexp")
+                } else {
+                    shinyjs::enable("save_as_altexp")
+                }
+            }
+            
+            # Update numeric input based on current experiment dimensions
             updateNumericInput(session, inputId = "ncomponents",
-                max = nrow(rObjects$tse) - 1)
+                max = nrow(current_exp) - 1)
         }
     })
     
