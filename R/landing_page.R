@@ -314,6 +314,7 @@
     
     .create_import_observers(input, rObjects)
     .create_altexp_observers(input, rObjects)
+    .create_merged_file_observers(input, rObjects)
     .create_manipulate_observers(input, rObjects)
     .create_estimate_observers(input, rObjects)
     .update_observers(input, session, rObjects)
