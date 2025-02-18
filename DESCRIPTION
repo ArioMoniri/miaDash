@@ -39,7 +39,9 @@ Imports:
     SummarizedExperiment,
     TreeSummarizedExperiment,
     utils,
-    vegan
+    vegan,
+    SingleCellExperiment,
+    SummarizedExperiment
 Suggests:
     BiocStyle,
     knitr,
