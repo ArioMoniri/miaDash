@@ -97,3 +97,24 @@ test_that("compatible functions for alternative experiments", {
                       assay.type = "counts")
     )
 })
+
+test_that("merged file validation works", {
+    # Create valid test data
+    data("Tengeler2020", package = "mia")
+    tse <- Tengeler2020
+    
+    # Should pass validation
+    expect_true(.validate_merged_file(tse))
+    
+    # Test invalid cases
+    # Empty TSE
+    empty_tse <- TreeSummarizedExperiment()
+    expect_error(.validate_merged_file(empty_tse))
+    
+    # Invalid alternative experiment
+    invalid_alt <- SummarizedExperiment(
+        assays = list(counts = matrix(1:12, nrow = 3, ncol = 2))
+    )
+    altExp(tse, "invalid") <- invalid_alt
+    expect_error(.validate_merged_file(tse))
+})
