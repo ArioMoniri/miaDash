@@ -131,23 +131,22 @@
                     tabsetPanel(id = "manipulate",
                           
                         tabPanel(title = "Subset", value = "subset", br(),
-                      
                             radioButtons(inputId = "subkeep", label = "Keep:",
                                 choices = c("prevalent", "rare"),
                                 inline = TRUE),
-                      
+                          
                             selectInput(inputId = "subassay", label = "Assay:",
                                 choices = NULL),
-                      
+                          
                             sliderInput(inputId = "prevalence", value = 0,
                                 label = "Prevalence threshold:", step = 0.01,
                                 min = 0, max = 1),
-                      
+                          
                             numericInput(inputId = "detection", value = 0,
                                 label = "Detection threshold:", min = 0,
-                                step = 1)),
-
-
+                                step = 1),
+                                
+                            # Move these elements inside the tabPanel
                             checkboxInput(inputId = "create_altexp", 
                                 label = "Create as alternative experiment", 
                                 value = FALSE),
