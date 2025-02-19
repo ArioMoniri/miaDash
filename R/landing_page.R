@@ -300,6 +300,7 @@
     })
     
     .create_import_observers(input, rObjects)
+    .create_switch_observers(input, rObjects)
     .create_manipulate_observers(input, rObjects)
     .create_estimate_observers(input, rObjects)
     .update_observers(input, session, rObjects)
