@@ -270,7 +270,8 @@
 
 
 #' @rdname create_observers
-#' @importFrom SingleCellExperiment altExp altExpNames mainExpName 'mainExpName<-'
+#' @importFrom SingleCellExperiment altExp altExpNames 
+#' @importFrom TreeSummarizedExperiment mainExpName 'mainExpName<-'
 .create_switch_observers <- function(input, rObjects) {
     observeEvent(input$do_switch, {
         isolate({
