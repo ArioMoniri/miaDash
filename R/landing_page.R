@@ -146,11 +146,37 @@
                             numericInput(inputId = "detection", value = 0,
                                 label = "Detection threshold:", min = 0,
                                 step = 1)),
+
+
+                            checkboxInput(inputId = "create_altexp", 
+                                label = "Create as alternative experiment", 
+                                value = FALSE),
+                                  
+                            conditionalPanel(
+                                condition = "input.create_altexp == true",
+                                textInput(inputId = "altexp_name", 
+                                    label = "Alternative experiment name:", 
+                                    value = "")
+                            )
+                        ),
                   
                         tabPanel(title = "Agglomerate", value = "agglomerate",
                             br(),
                             selectInput(inputId = "taxrank",
                                 label = "Taxonomic rank:", choices = NULL),
+
+                            checkboxInput(inputId = "create_altexp", 
+                                label = "Create as alternative experiment", 
+                                value = FALSE),
+
+
+                            conditionalPanel(
+                                condition = "input.create_altexp == true",
+                                textInput(inputId = "altexp_name", 
+                                    label = "Alternative experiment name:", 
+                                    value = "")
+                            )
+                                 
                                 ),
                   
                         tabPanel(title = "Transform", value = "transform", br(),
