@@ -22,6 +22,7 @@
 #' @importFrom TreeSummarizedExperiment TreeSummarizedExperiment mainExpName 'mainExpName<-'
 #' @importFrom SingleCellExperiment altExp altExpNames
 #' @importFrom SummarizedExperiment SummarizedExperiment
+#' @importFrom SingleCellExperiment altExps altExps<-
 .create_import_observers <- function(input, rObjects) {
   
     # nocov start
@@ -208,26 +209,34 @@
                 fun_args <- list(x = rObjects$tse, assay.type = input$subassay,
                     prevalence = input$prevalence, detection = input$detection)
                 
-                rObjects$tse <- .update_tse(rObjects$tse, subset_fun, fun_args)
-              
+                # Handle altExp creation if checkbox is selected
+                if(input$create_altexp && input$altexp_name != "") {
+                    altexp_object <- do.call(subset_fun, fun_args)
+                    altExps(rObjects$tse)[[input$altexp_name]] <- altexp_object
+                    showNotification(paste("Created alternative experiment:", input$altexp_name), 
+                                     type = "message")
+                } else {
+                    rObjects$tse <- .update_tse(rObjects$tse, subset_fun, fun_args)
+                }
             })
           
-        }
-      
-        else if( input$manipulate == "agglomerate" ){
+        } else if( input$manipulate == "agglomerate" ){
+          
             isolate({
+                
                 fun_args <- list(x = rObjects$tse, rank = input$taxrank)
                 
-                if(input$save_as_altexp && input$altexp_name != "") {
-                    # Create agglomerated version
-                    aggl_exp <- .update_tse(rObjects$tse, agglomerateByRank, fun_args)
-                    # Store as alternative experiment
-                    altExp(rObjects$tse, input$altexp_name) <- aggl_exp
+                # Handle altExp creation if checkbox is selected
+                if(input$create_altexp && input$altexp_name != "") {
+                    altexp_object <- do.call(agglomerateByRank, fun_args)
+                    altExps(rObjects$tse)[[input$altexp_name]] <- altexp_object
+                    showNotification(paste("Created alternative experiment:", input$altexp_name), 
+                                     type = "message")
                 } else {
-                    # Original behavior
                     rObjects$tse <- .update_tse(rObjects$tse, agglomerateByRank, fun_args)
                 }
             })
+          
         } else if( input$manipulate == "transform" ){
 
             if( input$trans.method == "clr" && !input$pseudocount &&
