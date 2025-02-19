@@ -19,7 +19,7 @@
 #' @importFrom S4Vectors DataFrame
 #' @importFrom biomformat read_biom
 #' @importFrom mia convertFromBIOM importMetaPhlAn
-#' @importFrom TreeSummarizedExperiment TreeSummarizedExperiment
+#' @importFrom TreeSummarizedExperiment TreeSummarizedExperiment mainExpName 'mainExpName<-'
 #' @importFrom SingleCellExperiment altExp altExpNames
 #' @importFrom SummarizedExperiment SummarizedExperiment
 .create_import_observers <- function(input, rObjects) {
@@ -268,6 +268,32 @@
     invisible(NULL)
 }
 
+
+#' @rdname create_observers
+#' @importFrom SingleCellExperiment altExp altExpNames mainExpName 'mainExpName<-'
+.create_switch_observers <- function(input, rObjects) {
+    observeEvent(input$do_switch, {
+        isolate({
+            req(input$switch_experiment)
+            if(input$switch_experiment != mainExpName(rObjects$tse)) {
+                # Store the name of the current main experiment
+                mainExpName(rObjects$tse) <- input$switch_experiment
+                
+                # Show notification about the switch
+                showNotification(
+                    paste0("Switched to experiment: ", input$switch_experiment),
+                    type = "message"
+                )
+            }
+        })
+    }, ignoreInit = TRUE, ignoreNULL = TRUE)
+    
+    invisible(NULL)
+}
+
+
+
+                 
 #' @rdname create_observers
 #' @importFrom stats as.formula
 #' @importFrom mia addAlpha runNMDS runRDA getDissimilarity
@@ -384,8 +410,10 @@
         if(isS4(rObjects$tse)) {
             # Get available alternative experiments
             alt_exps <- altExpNames(rObjects$tse)
+            current_main <- mainExpName(rObjects$tse)
+            if(is.null(current_main)) current_main <- "main"
             
-            # Create choices list
+            # Create choices list for experiments
             choices <- c("Main" = "main")
             if(length(alt_exps) > 0) {
                 alt_choices <- setNames(alt_exps, paste("Alt:", alt_exps))
@@ -395,13 +423,15 @@
             # Update experiment choice inputs
             updateSelectInput(session, inputId = "experiment_choice",
                 choices = choices)
+                
+            # Update switch experiment dropdown
+            updateSelectInput(session, inputId = "switch_experiment",
+                choices = setNames(c("main", alt_exps), c("Main", alt_exps)),
+                selected = current_main)
             
-            updateSelectInput(session, inputId = "target_experiment",
-                choices = choices)
-            
-            # Get current experiment
-            current_exp <- if(input$target_experiment != "main" && length(alt_exps) > 0) {
-                altExp(rObjects$tse, input$target_experiment)
+            # Get current experiment based on mainExpName
+            current_exp <- if(current_main != "main" && current_main %in% alt_exps) {
+                altExp(rObjects$tse, current_main)
             } else {
                 rObjects$tse
             }
@@ -418,16 +448,6 @@
               
             updateSelectInput(session, inputId = "estimate.assay",
                 choices = assayNames(current_exp))
-              
-            # Update UI elements based on experiment type
-            if(input$target_experiment != "main") {
-                if(grepl("^agglomerated_", input$target_experiment)) {
-                    # Disable certain operations for agglomerated experiments
-                    shinyjs::disable("save_as_altexp")
-                } else {
-                    shinyjs::enable("save_as_altexp")
-                }
-            }
             
             # Update numeric input based on current experiment dimensions
             updateNumericInput(session, inputId = "ncomponents",
