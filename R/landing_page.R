@@ -72,28 +72,6 @@
                             div(style = "margin-top: -20px")),
 
 
-                        tabPanel(title = "Alternative Experiments", value = "altexp", br(),
-                            
-                            fileInput(inputId = "alt_assay", label = "Alternative Assays:",
-                                accept = ".csv", multiple = TRUE,
-                                placeholder = "alt_assay.csv"),
-                            div(style = "margin-top: -20px"),
-                            
-                            fileInput(inputId = "alt_coldata", label = "Alternative colData:",
-                                accept = ".csv", placeholder = "alt_coldata.csv"),
-                            div(style = "margin-top: -20px"),
-                        
-                            fileInput(inputId = "alt_rowdata", label = "Alternative rowData:",
-                                accept = ".csv", placeholder = "alt_rowdata.csv"),
-                            div(style = "margin-top: -20px"),
-                            
-                            textInput(inputId = "alt_name", 
-                                label = "Alternative Experiment Name:",
-                                placeholder = "e.g. agglomerated"),
-                            
-                            actionButton("add_altexp", "Add Alternative Experiment", 
-                                class = "btn-primary")),
-
 
                         tabPanel(title = "Merged Data", value = "merged", br(),
                             fileInput(inputId = "merged_file", label = "Merged Dataset:",
@@ -149,9 +127,6 @@
                 box(id = "manipulate.panel", title = "Manipulate", width = 4,
                     status = "primary", solidHeader = TRUE, collapsible = TRUE,
 
-                    selectInput(inputId = "target_experiment",
-                        label = "Apply to:",
-                        choices = c("Main Experiment" = "main")),
 
                     tabsetPanel(id = "manipulate",
                           
@@ -176,13 +151,7 @@
                             br(),
                             selectInput(inputId = "taxrank",
                                 label = "Taxonomic rank:", choices = NULL),
-                            # Add these new inputs here
-                            checkboxInput(inputId = "save_as_altexp",
-                                label = "Save as Alternative Experiment", 
-                                value = FALSE),
-                            textInput(inputId = "altexp_name",
-                                label = "Alternative Experiment Name:",
-                                placeholder = "e.g. genus_level")),
+                                ),
                   
                         tabPanel(title = "Transform", value = "transform", br(),
                   
@@ -200,7 +169,25 @@
                       
                             radioButtons(inputId = "margin", label = "Margin:",
                                 choices = c("samples", "features"),
-                                inline = TRUE))),
+                                inline = TRUE)),
+
+                        tabPanel(title = "Switch", value = "switch", br(),
+                            
+                            selectInput(inputId = "switch_experiment", 
+                                label = "Current experiment:", 
+                                choices = NULL),
+                            
+                            div(
+                                style = "margin-top: 15px; margin-bottom: 15px;",
+                                p("Switch between the main experiment and alternative experiments. 
+                                  The selected experiment will be used for all operations.")
+                            ),
+                            
+                            actionButton("do_switch", "Switch Experiment", class = "btn-primary")
+                        ),
+
+                                
+                               ),
               
                     actionButton("apply", "Apply", class = "btn-primary")),
             
@@ -313,8 +300,6 @@
     })
     
     .create_import_observers(input, rObjects)
-    .create_altexp_observers(input, rObjects)
-    .create_merged_file_observers(input, rObjects)
     .create_manipulate_observers(input, rObjects)
     .create_estimate_observers(input, rObjects)
     .update_observers(input, session, rObjects)
