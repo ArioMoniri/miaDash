@@ -312,6 +312,137 @@
 }
 
 
+#' @rdname create_observers
+#' @importFrom shiny observeEvent isolate req showModal modalDialog removeModal actionButton modalButton
+#' @importFrom htmltools tags p div strong
+.create_experiment_state_observers <- function(input, session, rObjects) {
+    # Initialize reactive storages
+    rObjects$experiment_states <- .create_experiment_state_cache()
+    rObjects$experiment_history <- .create_history_tracker()
+    rObjects$panel_configurations <- .create_panel_config_storage()
+    rObjects$transition_preferences <- .create_transition_preferences()
+    
+    # When an experiment is selected for switching
+    observeEvent(input$iSEE_switch_experiment, {
+        req(input$iSEE_switch_experiment)
+        isolate({
+            current_exp <- mainExpName(rObjects$tse)
+            if(is.null(current_exp)) current_exp <- "main"
+            target_exp <- input$iSEE_switch_experiment
+            
+            # Only proceed if it's actually a different experiment
+            if(current_exp != target_exp) {
+                # Check if confirmation is needed
+                if(.needs_confirmation(rObjects$transition_preferences, current_exp, target_exp)) {
+                    .confirm_experiment_transition(session, rObjects, current_exp, target_exp)
+                } else {
+                    # No confirmation needed, switch directly
+                    .perform_experiment_switch(rObjects, current_exp, target_exp)
+                }
+            }
+        })
+    }, ignoreInit = TRUE)
+    
+    # Observe panel configuration changes
+    observeEvent(input$panel_config_changed, {
+        req(input$panel_config_changed)
+        isolate({
+            panel_data <- input$panel_config_changed
+            current_exp <- mainExpName(rObjects$tse)
+            if(is.null(current_exp)) current_exp <- "main"
+            
+            .save_panel_config(
+                rObjects$panel_configurations, 
+                current_exp, 
+                panel_data$panel_id, 
+                panel_data$config
+            )
+        })
+    }, ignoreInit = TRUE)
+    
+    # For undo/redo history navigation
+    observeEvent(input$undo_experiment_switch, {
+        isolate({
+            history <- .get_history(rObjects$experiment_history)
+            if(length(history) > 0) {
+                last_step <- history[[length(history)]]
+                .perform_experiment_switch(rObjects, 
+                                          last_step$to, 
+                                          last_step$from, 
+                                          record_history = FALSE)
+                # Remove the last step from history
+                rObjects$experiment_history(history[-length(history)])
+            }
+        })
+    }, ignoreInit = TRUE)
+    
+    invisible(NULL)
+}
+
+# Helper functions for experiment state management
+
+#' @rdname utils
+.confirm_experiment_transition <- function(session, rObjects, from_exp, to_exp) {
+    showModal(modalDialog(
+        title = "Switch Experiment?",
+        p(paste0("Are you sure you want to switch from '", 
+               ifelse(from_exp == "main", "Main Experiment", from_exp),
+               "' to '", 
+               ifelse(to_exp == "main", "Main Experiment", to_exp), "'?")),
+        div(
+            tags$strong("Note:"), 
+            "Your panel configurations will be preserved where possible."
+        ),
+        checkboxInput("remember_choice", "Remember this choice", value = FALSE),
+        footer = tagList(
+            actionButton("confirm_switch", "Switch", class = "btn-primary"),
+            modalButton("Cancel")
+        )
+    ))
+    
+    observeEvent(input$confirm_switch, {
+        isolate({
+            # Remember user preference if requested
+            if(input$remember_choice) {
+                .save_transition_preference(rObjects$transition_preferences, from_exp, to_exp)
+            }
+            
+            # Perform the actual experiment switch
+            .perform_experiment_switch(rObjects, from_exp, to_exp)
+            
+            removeModal()
+        })
+    }, once = TRUE)
+}
+
+#' @rdname utils
+.perform_experiment_switch <- function(rObjects, from_exp, to_exp, record_history = TRUE) {
+    # 1. Create snapshot of current state
+    current_panel_config <- rObjects$panel_configurations()[[from_exp]]
+    .create_experiment_snapshot(rObjects$experiment_states, from_exp, current_panel_config)
+    
+    # 2. Switch the experiment
+    mainExpName(rObjects$tse) <- to_exp
+    
+    # 3. Record in history if needed
+    if(record_history) {
+        .add_to_history(rObjects$experiment_history, from_exp, to_exp)
+    }
+    
+    # 4. Send update notification to UI
+    showNotification(
+        paste0("Switched to experiment: ", 
+               ifelse(to_exp == "main", "Main Experiment", to_exp)),
+        type = "message"
+    )
+    
+    # 5. Trigger panel reconfiguration in UI
+    shinyjs::runjs("if(window.iSEEApp && window.iSEEApp.reconfigurePanels) { window.iSEEApp.reconfigurePanels(); }")
+}
+
+
+
+                 
 
                  
 #' @rdname create_observers
@@ -754,7 +885,34 @@
 .create_launch_observers <- function(FUN, input, session, rObjects) {
     # nocov start
     observeEvent(input$launch, {
-        .launch_isee(FUN, input$panels, session, rObjects, input)  # Added input parameter
+        # Save the experiment choice for iSEE
+        experiment_choice <- isolate(input$experiment_choice)
+        if(is.null(experiment_choice)) experiment_choice <- "main"
+        
+        # Ensure experiment states are initialized
+        if(!exists("experiment_states", rObjects)) {
+            rObjects$experiment_states <- .create_experiment_state_cache()
+            rObjects$experiment_history <- .create_history_tracker()
+            rObjects$panel_configurations <- .create_panel_config_storage()
+            rObjects$transition_preferences <- .create_transition_preferences()
+        }
+        
+        # Take snapshot of initial state
+        current_panel_config <- isolate(input$panels)
+        .create_experiment_snapshot(
+            rObjects$experiment_states, 
+            experiment_choice, 
+            current_panel_config
+        )
+        
+        # Launch iSEE with experiment information
+        .launch_isee(
+            FUN, 
+            input$panels, 
+            session, 
+            rObjects, 
+            initial_experiment = experiment_choice
+        )
     }, ignoreInit = TRUE, ignoreNULL = TRUE)
     # nocov end
     invisible(NULL)
