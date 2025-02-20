@@ -177,6 +177,133 @@
     }
 }
 
+
+
+#' @rdname utils
+#' @importFrom SingleCellExperiment altExpNames
+#' @importFrom methods is
+.detect_all_experiments <- function(se) {
+    result <- list(
+        main = "Main Experiment",
+        alt_exps = list()
+    )
+    
+    if (is(se, "SingleCellExperiment") && length(altExpNames(se)) > 0) {
+        alt_exp_names <- altExpNames(se)
+        for (exp_name in alt_exp_names) {
+            alt_exp <- altExp(se, exp_name)
+            result$alt_exps[[exp_name]] <- list(
+                name = exp_name,
+                type = class(alt_exp)[1],
+                dims = dim(alt_exp),
+                assays = assayNames(alt_exp),
+                features = nrow(alt_exp)
+            )
+        }
+    }
+    
+    if (is(se, "MultiAssayExperiment")) {
+        experiment_list <- experiments(se)
+        for (exp_name in names(experiment_list)) {
+            exp_obj <- experiment_list[[exp_name]]
+            result$alt_exps[[exp_name]] <- list(
+                name = exp_name,
+                type = class(exp_obj)[1],
+                dims = dim(exp_obj),
+                assays = if(is(exp_obj, "SummarizedExperiment")) assayNames(exp_obj) else NULL,
+                features = nrow(exp_obj)
+            )
+        }
+    }
+    
+    return(result)
+}
+
+#' @rdname utils
+#' @importFrom SummarizedExperiment assayNames
+#' @importFrom methods is
+.get_experiment_metadata <- function(se, exp_name = "main") {
+    exp_obj <- .get_experiment(se, exp_name)
+    
+    metadata <- list(
+        name = exp_name,
+        type = class(exp_obj)[1],
+        dimensions = dim(exp_obj),
+        n_features = nrow(exp_obj),
+        n_samples = ncol(exp_obj),
+        assays = assayNames(exp_obj),
+        has_rowTree = !is.null(rowTree(exp_obj)),
+        has_colTree = !is.null(colTree(exp_obj)),
+        has_reducedDims = if(is(exp_obj, "SingleCellExperiment")) 
+                            length(reducedDimNames(exp_obj)) > 0 
+                          else FALSE
+    )
+    
+    return(metadata)
+}
+
+#' @rdname utils
+#' @importFrom methods is
+.check_experiment_panel_compatibility <- function(se, exp_name, panel_class) {
+    # Define panel compatibility rules
+    compatibility_rules <- list(
+        "RowTreePlot" = function(exp) !is.null(rowTree(exp)),
+        "ColumnTreePlot" = function(exp) !is.null(colTree(exp)),
+        "ReducedDimensionPlot" = function(exp) {
+            is(exp, "SingleCellExperiment") && length(reducedDimNames(exp)) > 0
+        },
+        "LoadingPlot" = function(exp) {
+            is(exp, "SingleCellExperiment") && length(reducedDimNames(exp)) > 0
+        },
+        "RDAPlot" = function(exp) {
+            is(exp, "SingleCellExperiment") && 
+            any(grepl("^RDA", reducedDimNames(exp)))
+        },
+        "AbundancePlot" = function(exp) {
+            is(exp, "TreeSummarizedExperiment") && length(assayNames(exp)) > 0
+        },
+        "AbundanceDensityPlot" = function(exp) {
+            is(exp, "TreeSummarizedExperiment") && length(assayNames(exp)) > 0
+        },
+        "ComplexHeatmapPlot" = function(exp) length(assayNames(exp)) > 0,
+        "RowDataTable" = function(exp) ncol(rowData(exp)) > 0,
+        "ColumnDataTable" = function(exp) ncol(colData(exp)) > 0
+    )
+    
+    exp_obj <- .get_experiment(se, exp_name)
+    
+    if (!panel_class %in% names(compatibility_rules)) {
+        return(TRUE)  # If no explicit rule, assume compatible
+    }
+    
+    return(compatibility_rules[[panel_class]](exp_obj))
+}
+
+#' @rdname utils
+.get_compatible_panels_for_experiment <- function(se, exp_name) {
+    all_panels <- c(default_panels, other_panels)
+    compatible_panels <- c()
+    
+    for (panel in all_panels) {
+        if (.check_experiment_panel_compatibility(se, exp_name, panel)) {
+            compatible_panels <- c(compatible_panels, panel)
+        }
+    }
+    
+    return(compatible_panels)
+}
+
+#' @rdname utils
+.can_apply_operation_to_experiment <- function(operation, exp_name) {
+    if (exp_name == "main") {
+        return(TRUE)
+    }
+    
+    return(operation %in% altexp_compatible_functions)
+}
+
+                             
+
 #' @rdname utils
 default_panels <- c("RowDataTable", "ColumnDataTable", "RowTreePlot",
     "AbundancePlot", "AbundanceDensityPlot", "ReducedDimensionPlot",
