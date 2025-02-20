@@ -24,10 +24,54 @@
 
         dashboardPage(
           
-            dashboardHeader(disable = TRUE),
+            dashboardHeader(
+                title = div(
+                    span("miaDash", style = "margin-right: 15px;"),
+                    div(
+                        style = "display: inline-block; margin-left: 10px;",
+                        selectizeInput(
+                            inputId = "global_experiment_selector",
+                            label = NULL,
+                            choices = c("Main" = "main"),
+                            width = "200px",
+                            options = list(
+                                placeholder = "Select experiment"
+                            )
+                        )
+                    ),
+                    style = "display: flex; align-items: center;"
+                ),
+                titleWidth = 350
+            ),
             dashboardSidebar(disable = TRUE),
             dashboardBody(
-                
+
+                fluidRow(
+                    id = "experiment_info",
+                    style = "margin-bottom: 15px;",
+                    div(
+                        class = "col-md-12",
+                        div(
+                            class = "info-box bg-light-blue",
+                            div(
+                                class = "info-box-content",
+                                span(class = "info-box-text", "Current Experiment"),
+                                span(
+                                    class = "info-box-number", 
+                                    textOutput("current_experiment_name", inline = TRUE)
+                                ),
+                                div(
+                                    style = "margin-top: 5px;",
+                                    htmlOutput("current_experiment_meta")
+                                )
+                            ),
+                            div(
+                                class = "info-box-icon",
+                                tags$i(class = "fa fa-flask")
+                            )
+                        )
+                    )
+                ),
                 tags$head(tags$style(HTML(".btn-primary {color: white}"))),
               
                 fluidRow(box(id = "import.panel", title = "Import", width = 4,
@@ -197,18 +241,28 @@
                                 inline = TRUE)),
 
                         tabPanel(title = "Switch", value = "switch", br(),
+                            selectInput(
+                                inputId = "switch_experiment", 
+                                label = "Select experiment:", 
+                                choices = NULL
+                            ),
                             
-                            selectInput(inputId = "switch_experiment", 
-                                label = "Current experiment:", 
-                                choices = NULL),
+                            div(
+                                id = "switch_experiment_info",
+                                style = "margin-top: 15px; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background-color: #f9f9f9;",
+                                htmlOutput("switch_experiment_details")
+                            ),
                             
                             div(
                                 style = "margin-top: 15px; margin-bottom: 15px;",
-                                p("Switch between the main experiment and alternative experiments. 
-                                  The selected experiment will be used for all operations.")
+                                p("The selected experiment will be used for all operations. Some panels may not be available depending on the experiment type.")
                             ),
                             
-                            actionButton("do_switch", "Switch Experiment", class = "btn-primary")
+                            div(
+                                style = "display: flex; justify-content: space-between;",
+                                actionButton("do_switch", "Switch Experiment", class = "btn-primary"),
+                                actionButton("refresh_experiments", "Refresh List", class = "btn-info", icon = icon("sync"))
+                            )
                         ),
 
                                 
@@ -264,17 +318,36 @@
                     width = 4, status = "primary", solidHeader = TRUE,
                     collapsible = TRUE,
 
-                    selectInput(inputId = "experiment_choice", 
-                        label = "Select Experiment:",
-                        choices = c("Main" = "main"),
-                        selected = "main"),
-                    
-                    checkboxGroupInput(inputId = "altexp_panels",
-                        label = "Show in Panels:",
-                        choices = c("Abundance Plot" = "AbundancePlot",
-                                    "Heatmap" = "ComplexHeatmapPlot",
-                                    "Data Table" = "RowDataTable"),
-                        selected = "AbundancePlot"),
+                    div(
+                        id = "viz_experiment_selector",
+                        style = "border: 1px solid #ddd; border-radius: 5px; padding: 10px; margin-bottom: 15px; background-color: #f9f9f9;",
+                        div(
+                            style = "display: flex; justify-content: space-between; align-items: center;",
+                            h4("Experiment Selection", style = "margin: 0;"),
+                            div(
+                                style = "text-align: right;",
+                                actionButton("sync_experiment", "Sync with Current", 
+                                             class = "btn-xs btn-info", 
+                                             icon = icon("sync"))
+                            )
+                        ),
+                        div(style = "margin-top: 10px;"),
+                        selectInput(
+                            inputId = "experiment_choice", 
+                            label = "Experiment for Visualization:",
+                            choices = c("Main" = "main"),
+                            selected = "main"
+                        ),
+                        checkboxGroupInput(
+                            inputId = "altexp_panels",
+                            label = "Show in Panels:",
+                            choices = c("Abundance Plot" = "AbundancePlot",
+                                        "Heatmap" = "ComplexHeatmapPlot", 
+                                        "Data Table" = "RowDataTable"),
+                            selected = "AbundancePlot"
+                        ),
+                        uiOutput("compatible_panels_info")
+                    ),
                     
                     hr(),
 
