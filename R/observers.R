@@ -23,6 +23,14 @@
 #' @importFrom SingleCellExperiment altExp altExpNames
 #' @importFrom SummarizedExperiment SummarizedExperiment
 #' @importFrom SingleCellExperiment altExps altExps<-
+#' @importFrom TreeSummarizedExperiment TreeSummarizedExperiment mainExpName 'mainExpName<-' colTree
+#' @importFrom SingleCellExperiment altExp altExpNames reducedDimNames
+#' @importFrom SingleCellExperiment altExps altExps<-
+#' @importFrom htmltools tags tagList div h4 p hr icon
+#' @importFrom shiny showNotification updateCheckboxGroupInput updateSelectInput
+#' @importFrom shinyjs simulateClick
+#' @importFrom mia taxonomyRanks
+#' @importFrom htmltools HTML br tags div tagList
 .create_import_observers <- function(input, rObjects) {
   
     # nocov start
@@ -117,13 +125,15 @@
 
 
 #' @rdname create_observers
+#' @importFrom mia taxonomyRanks
 .create_merged_file_observers <- function(input, rObjects) {
     observeEvent(input$merged_file, {
         isolate({
             tryCatch({
                 tse <- .process_merged_file(input$merged_file$datapath)
                 
-                if(input$agglomeration_levels == "All") {
+                if(input$agglomeration_levels == "All" && 
+                   length(taxonomyRanks(tse)) > 0) {
                     levels <- taxonomyRanks(tse)
                 } else if(input$agglomeration_levels == "Custom") {
                     levels <- input$custom_levels
@@ -409,6 +419,10 @@
     invisible(NULL)
 }
 
+
+
+                 
+                 
 #' @rdname create_observers
 #' @importFrom SummarizedExperiment assayNames
 #' @importFrom mia taxonomyRanks
@@ -463,7 +477,268 @@
             updateNumericInput(session, inputId = "ncomponents",
                 max = nrow(current_exp) - 1)
         }
+                                                       
     })
+
+
+    # Display experiment metadata for the current experiment
+    output$current_experiment_name <- renderText({
+        if(isS4(rObjects$tse)) {
+            current_main <- mainExpName(rObjects$tse)
+            if(is.null(current_main)) current_main <- "main"
+            if(current_main == "main") {
+                return("Main Experiment")
+            } else {
+                return(paste("Alternative:", current_main))
+            }
+        } else {
+            return("No Experiment Loaded")
+        }
+    })
+    
+    output$current_experiment_meta <- renderUI({
+        if(!isS4(rObjects$tse)) {
+            return(p("Please import a dataset first."))
+        }
+        
+        current_main <- mainExpName(rObjects$tse)
+        if(is.null(current_main)) current_main <- "main"
+        
+        exp_obj <- if(current_main != "main" && current_main %in% altExpNames(rObjects$tse)) {
+            altExp(rObjects$tse, current_main)
+        } else {
+            rObjects$tse
+        }
+        
+        meta <- list(
+            paste0(format(nrow(exp_obj), big.mark=","), " features"),
+            paste0(format(ncol(exp_obj), big.mark=","), " samples"),
+            paste0(length(assayNames(exp_obj)), " assays")
+        )
+        
+        if(inherits(exp_obj, "TreeSummarizedExperiment")) {
+            if(!is.null(rowTree(exp_obj))) {
+                meta <- c(meta, "rowTree: available")
+            }
+            if(!is.null(colTree(exp_obj))) {
+                meta <- c(meta, "colTree: available")
+            }
+        }
+        
+        if(inherits(exp_obj, "SingleCellExperiment") && 
+           length(reducedDimNames(exp_obj)) > 0) {
+            meta <- c(meta, paste0(length(reducedDimNames(exp_obj)), 
+                                  " reduced dimensions"))
+        }
+        
+        tags$ul(
+            style = "padding-left: 15px; margin-bottom: 0;",
+            lapply(meta, function(item) tags$li(item))
+        )
+    })
+                
+    
+    
+    # Observer for refreshing experiment list
+    observeEvent(input$refresh_experiments, {
+        if(isS4(rObjects$tse)) {
+            showNotification("Refreshing experiment list...", type = "message")
+            
+            # Get available alternative experiments
+            alt_exps <- altExpNames(rObjects$tse)
+            current_main <- mainExpName(rObjects$tse)
+            if(is.null(current_main)) current_main <- "main"
+            
+            # Create choices list for experiments
+            choices <- c("Main" = "main")
+            if(length(alt_exps) > 0) {
+                alt_choices <- setNames(alt_exps, paste("Alt:", alt_exps))
+                choices <- c(choices, alt_choices)
+            }
+            
+            # Update experiment choice inputs
+            updateSelectInput(session, inputId = "experiment_choice",
+                choices = choices)
+                
+            # Update switch experiment dropdown
+            updateSelectInput(session, inputId = "switch_experiment",
+                choices = setNames(c("main", alt_exps), c("Main", alt_exps)),
+                selected = current_main)
+            
+            # Update global experiment selector if it exists
+            if(!is.null(input$global_experiment_selector)) {
+                updateSelectInput(session, inputId = "global_experiment_selector",
+                    choices = choices,
+                    selected = current_main)
+            }
+        }
+    })
+    
+    # Observer for global experiment selector
+    observeEvent(input$global_experiment_selector, {
+        req(input$global_experiment_selector)
+        if(isS4(rObjects$tse) && 
+           input$global_experiment_selector != mainExpName(rObjects$tse)) {
+            # Update the switch experiment selector to match
+            updateSelectInput(session, "switch_experiment", 
+                             selected = input$global_experiment_selector)
+            # Trigger the switch
+            simulateClick("do_switch")
+        }
+    }, ignoreInit = TRUE)
+    
+    # Observer to sync experiment selection
+    observeEvent(input$sync_experiment, {
+        if(isS4(rObjects$tse)) {
+            current_main <- mainExpName(rObjects$tse)
+            if(is.null(current_main)) current_main <- "main"
+            
+            updateSelectInput(session, "experiment_choice", 
+                             selected = current_main)
+            
+            showNotification(
+                paste("Visualization will use:", 
+                      ifelse(current_main == "main", "Main Experiment", current_main)),
+                type = "message"
+            )
+        }
+    })
+
+
+
+      
+
+    # Render experiment details for the switch panel
+    output$switch_experiment_details <- renderUI({
+        req(input$switch_experiment)
+        
+        if(!isS4(rObjects$tse)) {
+            return(p("Please import a dataset first."))
+        }
+        
+        exp_name <- input$switch_experiment
+        exp_obj <- if(exp_name != "main" && exp_name %in% altExpNames(rObjects$tse)) {
+            altExp(rObjects$tse, exp_name)
+        } else {
+            rObjects$tse
+        }
+        
+        divs <- list(
+            h4(ifelse(exp_name == "main", "Main Experiment", exp_name), 
+               style = "margin-top: 0; color: #337ab7;"),
+            div(
+                style = "display: flex; justify-content: space-between; margin-bottom: 10px;",
+                div(
+                    tags$strong("Type:"), 
+                    tags$span(class(exp_obj)[1])
+                ),
+                div(
+                    tags$strong("Dimensions:"), 
+                    tags$span(paste0(format(nrow(exp_obj), big.mark=","), " × ", 
+                                    format(ncol(exp_obj), big.mark=",")))
+                )
+            )
+        )
+        
+        # Add assays info
+        if(length(assayNames(exp_obj)) > 0) {
+            divs <- c(divs, list(
+                div(
+                    tags$strong("Assays:"),
+                    tags$span(paste(assayNames(exp_obj), collapse=", "))
+                )
+            ))
+        }
+        
+        # Add tree info
+        if(inherits(exp_obj, "TreeSummarizedExperiment")) {
+            tree_status <- c()
+            if(!is.null(rowTree(exp_obj))) {
+                tree_status <- c(tree_status, "rowTree")
+            }
+            if(!is.null(colTree(exp_obj))) {
+                tree_status <- c(tree_status, "colTree")
+            }
+            
+            if(length(tree_status) > 0) {
+                divs <- c(divs, list(
+                    div(
+                        tags$strong("Trees:"),
+                        tags$span(paste(tree_status, collapse=", "))
+                    )
+                ))
+            }
+        }
+        
+        # Add reduced dimension info
+        if(inherits(exp_obj, "SingleCellExperiment") && 
+           length(reducedDimNames(exp_obj)) > 0) {
+            divs <- c(divs, list(
+                div(
+                    tags$strong("Reduced Dimensions:"),
+                    tags$span(paste(reducedDimNames(exp_obj), collapse=", "))
+                )
+            ))
+        }
+        
+        # Add compatible panels info
+        compatible_panels <- .get_compatible_panels_for_experiment(rObjects$tse, exp_name)
+        divs <- c(divs, list(
+            hr(style = "margin: 10px 0;"),
+            p(tags$strong("Compatible Panels:"), style = "margin-bottom: 5px;"),
+            tags$ul(
+                style = "padding-left: 15px; margin-bottom: 0;",
+                lapply(compatible_panels, function(panel) {
+                    tags$li(panel)
+                })
+            )
+        ))
+        
+        do.call(tagList, divs)
+    })          
+
+    # Show compatible panels for visualization
+    output$compatible_panels_info <- renderUI({
+        req(input$experiment_choice)
+        
+        if(!isS4(rObjects$tse)) {
+            return(NULL)
+        }
+        
+        compatible_panels <- .get_compatible_panels_for_experiment(
+            rObjects$tse, input$experiment_choice)
+        
+        if(length(compatible_panels) == 0) {
+            return(div(
+                class = "alert alert-warning",
+                style = "margin-top: 10px; padding: 8px;",
+                icon("exclamation-triangle"), 
+                "No compatible panels found for this experiment."
+            ))
+        }
+        
+        # Filter the panels selection to compatible ones
+        updateSelectInput(session, "panels",
+            choices = compatible_panels,
+            selected = intersect(input$panels, compatible_panels)
+        )
+        
+        # Update checkbox options for alt experiments
+        alt_compatible <- c("AbundancePlot", "ComplexHeatmapPlot", "RowDataTable")
+        updateCheckboxGroupInput(session, "altexp_panels",
+            choices = setNames(alt_compatible, 
+                             c("Abundance Plot", "Heatmap", "Data Table")),
+            selected = intersect(input$altexp_panels, alt_compatible)
+        )
+        
+        div(
+            class = "alert alert-info",
+            style = "margin-top: 10px; padding: 8px;",
+            p(tags$strong(length(compatible_panels)), " compatible panels found")
+        )
+    })          
+          
+          
     
     observeEvent(input$iSEE_INTERNAL_tour_steps, {
       
@@ -484,3 +759,33 @@
     # nocov end
     invisible(NULL)
 }
+
+#' @rdname utils
+.process_merged_file <- function(file_path) {
+    # Process the merged file and return a TreeSummarizedExperiment object
+    tse <- readRDS(file_path)
+    return(tse)
+}
+
+#' @rdname utils
+.create_agglomerated_experiments <- function(tse, levels) {
+    for(level in levels) {
+        alt_name <- paste0("agglom_", level)
+        agglom_tse <- agglomerateByRank(tse, rank = level)
+        altExps(tse)[[alt_name]] <- agglom_tse
+    }
+    return(tse)
+}
+
+#' @rdname utils
+.get_compatible_panels_for_experiment <- function(tse, exp_name) {
+    panels <- c("RowDataTable", "ColumnDataTable", "ReducedDimensionPlot", "ComplexHeatmapPlot")
+    if(inherits(tse, "TreeSummarizedExperiment")) {
+        panels <- c(panels, "RowTreePlot", "AbundancePlot", "RDAPlot", "AbundanceDensityPlot")
+        if(!is.null(colTree(tse))) {
+            panels <- c(panels, "ColumnTreePlot")
+        }
+    }
+    return(panels)
+}
+                                                   
