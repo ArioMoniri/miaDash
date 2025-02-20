@@ -302,7 +302,97 @@
     return(operation %in% altexp_compatible_functions)
 }
 
-                             
+# Add after .can_apply_operation_to_experiment function but before default_panels
+
+#' @rdname utils
+#' @importFrom shiny reactiveValues reactiveVal
+.create_experiment_state_cache <- function() {
+    return(reactiveValues())
+}
+
+#' @rdname utils
+.create_experiment_snapshot <- function(tse, exp_name, panel_config) {
+  return(list(
+    timestamp = Sys.time(),
+    panel_config = panel_config,
+    metadata = .get_experiment_metadata(tse, exp_name)
+  ))
+}
+
+#' @rdname utils
+.restore_experiment_state <- function(experiment_states, exp_name) {
+  if (exp_name %in% names(experiment_states)) {
+    return(experiment_states[[exp_name]])
+  }
+  return(NULL)
+}
+
+#' @rdname utils
+.create_history_tracker <- function() {
+  return(reactiveVal(list()))
+}
+
+#' @rdname utils
+.add_to_history <- function(history_tracker, from_exp, to_exp) {
+  current_history <- history_tracker()
+  new_step <- list(
+    from = from_exp,
+    to = to_exp,
+    timestamp = Sys.time()
+  )
+  history_tracker(c(current_history, list(new_step)))
+}
+
+#' @rdname utils
+.get_history <- function(history_tracker) {
+  return(history_tracker())
+}
+
+#' @rdname utils
+.create_panel_config_storage <- function() {
+  return(reactiveVal(list()))
+}
+
+#' @rdname utils
+.save_panel_config <- function(config_storage, exp_name, panel_id, config) {
+  current_configs <- config_storage()
+  if (!exp_name %in% names(current_configs)) {
+    current_configs[[exp_name]] <- list()
+  }
+  current_configs[[exp_name]][[panel_id]] <- config
+  config_storage(current_configs)
+}
+
+#' @rdname utils
+.get_panel_config <- function(config_storage, exp_name, panel_id, default = NULL) {
+  current_configs <- config_storage()
+  if (exp_name %in% names(current_configs) && 
+      panel_id %in% names(current_configs[[exp_name]])) {
+    return(current_configs[[exp_name]][[panel_id]])
+  }
+  return(default)
+}
+
+#' @rdname utils
+.create_transition_preferences <- function() {
+  return(reactiveVal(character()))
+}
+
+#' @rdname utils
+.save_transition_preference <- function(prefs_storage, from_exp, to_exp) {
+  current_prefs <- prefs_storage()
+  key <- paste(from_exp, to_exp, sep = "_")
+  if (!(key %in% current_prefs)) {
+    prefs_storage(c(current_prefs, key))
+  }
+}
+
+#' @rdname utils
+.needs_confirmation <- function(prefs_storage, from_exp, to_exp) {
+  current_prefs <- prefs_storage()
+  key <- paste(from_exp, to_exp, sep = "_")
+  return(!(key %in% current_prefs))
+}                             
 
 #' @rdname utils
 default_panels <- c("RowDataTable", "ColumnDataTable", "RowTreePlot",
