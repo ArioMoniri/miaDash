@@ -29,11 +29,116 @@ miaDash <- function() {
     
     addResourcePath("assets", system.file("assets", package = "miaDash"))
   
+    # Enhanced JavaScript for experiment switching
     experiment_js <- "
+    window.iSEEApp = window.iSEEApp || {};
+    
+    // Initialize panel tracking
+    window.iSEEApp.panels = {};
+    
+    // Register panels when they're created
+    $(document).on('iSEE:panelCreated', function(event, panelId, panelType) {
+        window.iSEEApp.panels[panelId] = {
+            type: panelType,
+            config: {}
+        };
+    });
+    
+    // Track panel configuration changes
+    $(document).on('iSEE:panelSettingsChanged', function(event, panelId, settings) {
+        if (window.iSEEApp.panels[panelId]) {
+            window.iSEEApp.panels[panelId].config = settings;
+            Shiny.setInputValue('panel_config_changed', {
+                panel_id: panelId,
+                config: settings
+            });
+        }
+    });
+    
+    // Panel reconfiguration for experiment switching
+    window.iSEEApp.reconfigurePanels = function(experimentName) {
+        var expName = experimentName || $('#iSEE_INTERNAL_experiment_selector').val();
+        
+        // For each panel in the current view
+        for (var panelId in window.iSEEApp.panels) {
+            var panelType = window.iSEEApp.panels[panelId].type;
+            
+            // Request panel-specific reconfiguration from server
+            Shiny.setInputValue('reconfigure_panel', {
+                panel_id: panelId,
+                panel_type: panelType,
+                experiment: expName
+            });
+            
+            // Update experiment reference attribute if panel has it
+            $('.panel[data-panel-id=\"' + panelId + '\"]')
+                .attr('data-experiment', expName);
+        }
+        
+        // Show transition indicator
+        $('.experiment-transition-indicator').fadeIn(200).delay(500).fadeOut(200);
+    };
+    
+    // Handle experiment selector changes
     $(document).on('change', '#iSEE_INTERNAL_experiment_selector', function() {
         var selectedExp = $(this).val();
-        Shiny.setInputValue('iSEE_INTERNAL_switch_experiment', selectedExp);
+        Shiny.setInputValue('iSEE_switch_experiment', selectedExp);
     });
+    
+    // Add keyboard shortcuts
+    $(document).keydown(function(e) {
+        // Alt+E to focus experiment selector
+        if (e.altKey && e.keyCode === 69) { // 'E' key
+            e.preventDefault();
+            $('#iSEE_INTERNAL_experiment_selector').focus();
+        }
+        
+        // Alt+Z for undo experiment switch
+        if (e.altKey && e.keyCode === 90) { // 'Z' key
+            e.preventDefault();
+            $('#undo_experiment_switch').click();
+        }
+        
+        // Alt+Y for redo experiment switch
+        if (e.altKey && e.keyCode === 89) { // 'Y' key
+            e.preventDefault();
+            $('#redo_experiment_switch').click();
+        }
+    });
+    "
+    
+    # Custom CSS for experiment management UI
+    experiment_css <- "
+    .experiment-selector-container .selectize-control {
+        margin-bottom: 0;
+    }
+    .experiment-header-row {
+        width: 100%;
+    }
+    .experiment-transition-indicator {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background-color: #4CAF50;
+        display: none;
+    }
+    .experiment-management-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    .current-experiment-info {
+        display: flex;
+        align-items: center;
+    }
+    .experiment-history-controls .btn-sm {
+        padding: 3px 6px;
+        font-size: 12px;
+    }
     "
     
     iSEE(
@@ -45,16 +150,8 @@ miaDash <- function() {
             onclick = "window.location.href='https://miadash-microbiome.2.rahtiapp.fi/'; window.location.reload(true);"
         ),
         customJS = experiment_js,
-        customStyles = "
-        .experiment-selector-container .selectize-control {
-            margin-bottom: 0;
-        }
-        .experiment-header-row {
-            width: 100%;
-        }
-        "
+        customStyles = experiment_css
     )
-
 }
 
 #' @importFrom methods is
@@ -68,28 +165,54 @@ miaDash <- function() {
 #' @importFrom SummarizedExperiment rowData colData
 #' @importFrom SummarizedExperiment altExp altExp<- altExpNames mainExpName
 #' @importFrom SingleCellExperiment reducedDims
-.launch_isee <- function(FUN, initial, session, rObjects, input) {
+#' @importFrom htmltools tags tagList div hr icon
+#' @importFrom shiny selectInput actionButton
+.launch_isee <- function(FUN, initial, session, rObjects, input = NULL, initial_experiment = NULL) {
     # nocov start
     tse <- rObjects$tse
     
-    # Get the current experiment based on user selection
-    current_exp <- if(!is.null(input$experiment_choice) && input$experiment_choice != "main") {
+    # Determine experiment choice, with priority order:
+    # 1. Explicit initial_experiment parameter
+    # 2. Input$experiment_choice 
+    # 3. Default to "main"
+    exp_name <- "main"
+    if (!is.null(initial_experiment) && initial_experiment != "") {
+        exp_name <- initial_experiment
+    } else if (!is.null(input) && !is.null(input$experiment_choice) && input$experiment_choice != "") {
+        exp_name <- input$experiment_choice
+    }
+    
+    # Get the current experiment based on selection
+    current_exp <- if(exp_name != "main") {
         tryCatch({
-            altExp(tse, input$experiment_choice)
+            altExp(tse, exp_name)
         }, error = function(e) {
             # Handle case where the selected experiment doesn't exist
             .print_message(
                 title = "Experiment Error:",
                 "The selected experiment could not be found. Defaulting to main experiment."
             )
+            exp_name <<- "main"  # Reset exp_name to main
             tse
         })
     } else {
         tse
     }
     
+    # Get stored panel configuration if available
+    if(exists("panel_configurations", rObjects) && 
+       !is.null(rObjects$panel_configurations())) {
+        stored_config <- .get_panel_config(
+            rObjects$panel_configurations, exp_name, NULL)
+        
+        if(!is.null(stored_config)) {
+            # Use stored panel configuration if available
+            initial <- stored_config
+        }
+    }
+    
     # Filter panels based on experiment type
-    if(!is.null(input$experiment_choice) && input$experiment_choice != "main") {
+    if(exp_name != "main") {
         # Define which panels are compatible with alternative experiments
         altexp_panels <- c("RowDataTable", "ColumnDataTable", "AbundancePlot", 
                           "AbundanceDensityPlot", "ComplexHeatmapPlot",
@@ -118,13 +241,13 @@ miaDash <- function() {
         }
         
         # Configure panel based on experiment type
-        if(!is.null(input$experiment_choice) && input$experiment_choice != "main") {
+        if(exp_name != "main") {
             # Set experiment name for dimension reduction panels
             if(inherits(panel, "DimensionReducedPanel") || 
                inherits(panel, "ReducedDimensionPlot")) {
                 # Use try-catch to handle any attribute setting errors
                 tryCatch({
-                    panel$ExperimentName <- input$experiment_choice
+                    panel$ExperimentName <- exp_name
                 }, error = function(e) {
                     # Silently continue if attribute can't be set
                 })
@@ -135,7 +258,7 @@ miaDash <- function() {
                inherits(panel, "ComplexHeatmapPlot")) {
                 tryCatch({
                     panel$ShowFeatureNames <- TRUE
-                    if(grepl("^agglomerated_", input$experiment_choice)) {
+                    if(grepl("^agglomerated_", exp_name)) {
                         panel$ShowAggregationLevel <- TRUE
                     }
                 }, error = function(e) {
@@ -148,44 +271,173 @@ miaDash <- function() {
     })
     
     # Check if panels are compatible with the current experiment
-    # Use safer versions of checking functions that handle potential errors
-    initial <- .check_panel_safe(current_exp, initial, "RowDataTable", rowData)
-    initial <- .check_panel_safe(current_exp, initial, "ColumnDataTable", colData)
-    initial <- .check_panel_safe(current_exp, initial, "RowTreePlot", rowLinks)
-    initial <- .check_panel_safe(current_exp, initial, "AbundancePlot", taxonomyRanks)
-    initial <- .check_panel_safe(current_exp, initial, "ReducedDimensionPlot", reducedDims)
-    initial <- .check_panel_safe(current_exp, initial, "LoadingPlot", reducedDims)
-    initial <- .check_panel_safe(current_exp, initial, "ColumnTreePlot", colLinks)
+    initial <- .check_panel(tse, initial, "RowDataTable", rowData, exp_name)
+    initial <- .check_panel(tse, initial, "ColumnDataTable", colData, exp_name)
+    initial <- .check_panel(tse, initial, "RowTreePlot", rowLinks, exp_name)
+    initial <- .check_panel(tse, initial, "AbundancePlot", taxonomyRanks, exp_name)
+    initial <- .check_panel(tse, initial, "ReducedDimensionPlot", reducedDims, exp_name)
+    initial <- .check_panel(tse, initial, "LoadingPlot", reducedDims, exp_name)
+    initial <- .check_panel(tse, initial, "ColumnTreePlot", colLinks, exp_name)
+  
+    # Take a snapshot of initial state if state management is active
+    if(exists("experiment_states", rObjects)) {
+        .create_experiment_snapshot(
+            rObjects$experiment_states,
+            exp_name,
+            initial
+        )
+    }
+  
+    # Create experiment selector JavaScript for real-time switching
+    experiment_selector_js <- "
+    window.iSEEApp = window.iSEEApp || {};
+    
+    // Initialize panel tracking
+    window.iSEEApp.panels = {};
+    
+    // Register panels when they're created
+    $(document).on('iSEE:panelCreated', function(event, panelId, panelType) {
+        window.iSEEApp.panels[panelId] = {
+            type: panelType,
+            config: {}
+        };
+    });
+    
+    // Track panel configuration changes
+    $(document).on('iSEE:panelSettingsChanged', function(event, panelId, settings) {
+        if (window.iSEEApp.panels[panelId]) {
+            window.iSEEApp.panels[panelId].config = settings;
+            Shiny.setInputValue('panel_config_changed', {
+                panel_id: panelId,
+                config: settings
+            });
+        }
+    });
+    
+    // Panel reconfiguration for experiment switching
+    window.iSEEApp.reconfigurePanels = function(experimentName) {
+        var expName = experimentName || $('#iSEE_INTERNAL_experiment_selector').val();
+        
+        // For each panel in the current view
+        for (var panelId in window.iSEEApp.panels) {
+            var panelType = window.iSEEApp.panels[panelId].type;
+            
+            // Request panel-specific reconfiguration from server
+            Shiny.setInputValue('reconfigure_panel', {
+                panel_id: panelId,
+                panel_type: panelType,
+                experiment: expName
+            });
+            
+            // Update experiment reference attribute if panel has it
+            $('.panel[data-panel-id=\"' + panelId + '\"]')
+                .attr('data-experiment', expName);
+        }
+        
+        // Show transition indicator
+        $('.experiment-transition-indicator').fadeIn(200).delay(500).fadeOut(200);
+    };
+    
+    // Handle experiment selector changes
+    $(document).on('change', '#iSEE_INTERNAL_experiment_selector', function() {
+        var selectedExp = $(this).val();
+        Shiny.setInputValue('iSEE_switch_experiment', selectedExp);
+    });
+    
+    // Add keyboard shortcuts
+    $(document).keydown(function(e) {
+        // Alt+E to focus experiment selector
+        if (e.altKey && e.keyCode === 69) { // 'E' key
+            e.preventDefault();
+            $('#iSEE_INTERNAL_experiment_selector').focus();
+        }
+        
+        // Alt+Z for undo experiment switch
+        if (e.altKey && e.keyCode === 90) { // 'Z' key
+            e.preventDefault();
+            $('#undo_experiment_switch').click();
+        }
+        
+        // Alt+Y for redo experiment switch
+        if (e.altKey && e.keyCode === 89) { // 'Y' key
+            e.preventDefault();
+            $('#redo_experiment_switch').click();
+        }
+    });
+    "
   
     # Launch iSEE with the current experiment and validated panels
     FUN(
         SE = tse,
         INIT = initial,
-        INITIAL_EXPERIMENTS = list(
-            active_experiment = input$experiment_choice,
-            experiments = .detect_all_experiments(tse)
-        ),
+        customJS = experiment_selector_js,
         customCollapseBoxes = function(x, plot_name) {
             # Add experiment selector in header
             if (plot_name == 1) {
-                experiment_selector <- tags$div(
-                    class = "experiment-selector-container",
-                    style = "float: right; margin-right: 10px; max-width: 250px;",
-                    selectInput(
-                        inputId = "iSEE_INTERNAL_experiment_selector",
-                        label = NULL,
-                        choices = c("Main" = "main", 
-                                   setNames(altExpNames(tse), altExpNames(tse))),
-                        selected = input$experiment_choice,
-                        width = "250px"
+                # Create experiment choices
+                all_experiments <- c("Main" = "main")
+                if(length(altExpNames(tse)) > 0) {
+                    all_experiments <- c(all_experiments, 
+                                       setNames(altExpNames(tse), paste("Alt:", altExpNames(tse))))
+                }
+                
+                experiment_ui <- tags$div(
+                    class = "experiment-management-container",
+                    style = "display: flex; align-items: center; justify-content: space-between; width: 100%;",
+                    # Left: current experiment info
+                    tags$div(
+                        class = "current-experiment-info",
+                        tags$span(
+                            class = "experiment-label",
+                            style = "margin-right: 5px; font-weight: bold;",
+                            "Experiment:"
+                        )
+                    ),
+                    # Center: experiment selector
+                    tags$div(
+                        class = "experiment-selector-wrapper",
+                        style = "flex-grow: 1; max-width: 300px; margin: 0 10px;",
+                        selectInput(
+                            inputId = "iSEE_INTERNAL_experiment_selector",
+                            label = NULL,
+                            choices = all_experiments,
+                            selected = exp_name,
+                            width = "100%"
+                        ),
+                        # Transition indicator
+                        tags$div(
+                            class = "experiment-transition-indicator",
+                            style = "position: absolute; top: 0; left: 0; right: 0; height: 3px; background-color: #4CAF50; display: none;"
+                        )
+                    ),
+                    # Right: history controls
+                    tags$div(
+                        class = "experiment-history-controls",
+                        style = "display: flex;",
+                        actionButton(
+                            "undo_experiment_switch",
+                            label = NULL,
+                            icon = icon("undo"),
+                            class = "btn-sm",
+                            title = "Undo experiment switch (Alt+Z)",
+                            style = "margin-right: 5px;"
+                        ),
+                        actionButton(
+                            "redo_experiment_switch",
+                            label = NULL,
+                            icon = icon("redo"),
+                            class = "btn-sm",
+                            title = "Redo experiment switch (Alt+Y)"
+                        )
                     )
                 )
-                return(htmltools::tagList(htmltools::div(
-                    class = "experiment-header-row",
-                    style = "display: flex; align-items: center; justify-content: space-between;",
-                    x,
-                    experiment_selector
-                )))
+                
+                return(tags$div(
+                    class = "experiment-header-wrapper",
+                    experiment_ui,
+                    hr(style = "margin: 10px 0;"),
+                    x
+                ))
             }
             return(x)
         }
