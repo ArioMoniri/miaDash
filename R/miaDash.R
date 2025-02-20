@@ -29,6 +29,13 @@ miaDash <- function() {
     
     addResourcePath("assets", system.file("assets", package = "miaDash"))
   
+    experiment_js <- "
+    $(document).on('change', '#iSEE_INTERNAL_experiment_selector', function() {
+        var selectedExp = $(this).val();
+        Shiny.setInputValue('iSEE_INTERNAL_switch_experiment', selectedExp);
+    });
+    "
+    
     iSEE(
         landingPage = .landing_page,
         appTitle = tags$div(
@@ -36,8 +43,16 @@ miaDash <- function() {
             tags$img(src = "assets/mia_logo.png", height = "40px", style = "margin-left: 10px"),
             style = "cursor: pointer; font-weight: 500",
             onclick = "window.location.href='https://miadash-microbiome.2.rahtiapp.fi/'; window.location.reload(true);"
-        )
-            
+        ),
+        customJS = experiment_js,
+        customStyles = "
+        .experiment-selector-container .selectize-control {
+            margin-bottom: 0;
+        }
+        .experiment-header-row {
+            width: 100%;
+        }
+        "
     )
 
 }
@@ -143,7 +158,38 @@ miaDash <- function() {
     initial <- .check_panel_safe(current_exp, initial, "ColumnTreePlot", colLinks)
   
     # Launch iSEE with the current experiment and validated panels
-    FUN(SE = current_exp, INIT = initial)
+    FUN(
+        SE = tse,
+        INIT = initial,
+        INITIAL_EXPERIMENTS = list(
+            active_experiment = input$experiment_choice,
+            experiments = .detect_all_experiments(tse)
+        ),
+        customCollapseBoxes = function(x, plot_name) {
+            # Add experiment selector in header
+            if (plot_name == 1) {
+                experiment_selector <- tags$div(
+                    class = "experiment-selector-container",
+                    style = "float: right; margin-right: 10px; max-width: 250px;",
+                    selectInput(
+                        inputId = "iSEE_INTERNAL_experiment_selector",
+                        label = NULL,
+                        choices = c("Main" = "main", 
+                                   setNames(altExpNames(tse), altExpNames(tse))),
+                        selected = input$experiment_choice,
+                        width = "250px"
+                    )
+                )
+                return(htmltools::tagList(htmltools::div(
+                    class = "experiment-header-row",
+                    style = "display: flex; align-items: center; justify-content: space-between;",
+                    x,
+                    experiment_selector
+                )))
+            }
+            return(x)
+        }
+    )
   
     # Enable iSEE interface buttons
     enable("iSEE_INTERNAL_organize_panels")
@@ -191,14 +237,24 @@ miaDash <- function() {
 }
 
 # Helper function to safely get experiment
+# Replace the current .get_experiment function with:
 .get_experiment <- function(tse, experiment_name) {
     if(is.null(experiment_name) || experiment_name == "main") {
-        return(tse)
+        return(list(
+            experiment = tse,
+            name = "main",
+            is_main = TRUE
+        ))
     }
     
-    tryCatch({
+    result <- tryCatch({
         # Try to get alternative experiment
-        altExp(tse, experiment_name)
+        alt_exp <- altExp(tse, experiment_name)
+        list(
+            experiment = alt_exp,
+            name = experiment_name,
+            is_main = FALSE
+        )
     }, error = function(e) {
         # Return main experiment if alternative not found
         .print_message(
@@ -206,8 +262,14 @@ miaDash <- function() {
             paste("Could not find experiment:", experiment_name),
             "Using the main experiment instead."
         )
-        return(tse)
+        list(
+            experiment = tse,
+            name = "main",
+            is_main = TRUE
+        )
     })
+    
+    return(result)
 }
 
 # Helper function to filter panels by experiment type
@@ -229,4 +291,58 @@ miaDash <- function() {
         }
         return(filtered)
     }
+}
+
+
+#' @importFrom shinyjs runjs 
+#' @importFrom SingleCellExperiment altExp
+.handle_isee_experiment_switch <- function(session, input, output, se) {
+    # Monitor for experiment switch requests
+    observeEvent(input$iSEE_INTERNAL_switch_experiment, {
+        req(input$iSEE_INTERNAL_switch_experiment)
+        exp_name <- input$iSEE_INTERNAL_switch_experiment
+        
+        # Get the appropriate experiment
+        if (exp_name == "main") {
+            current_exp <- se
+        } else {
+            tryCatch({
+                current_exp <- altExp(se, exp_name)
+            }, error = function(e) {
+                showNotification(
+                    paste("Error switching to experiment:", exp_name), 
+                    type = "error"
+                )
+                return(NULL)
+            })
+        }
+        
+        if (!is.null(current_exp)) {
+            # Update all panels that support alternative experiments
+            panel_ids <- grep("^\\.panel\\d+$", names(input), value = TRUE)
+            for (panel_id in panel_ids) {
+                panel_type <- input[[paste0(panel_id, "Type")]]
+                
+                # Configure experiment-aware panels
+                if (panel_type %in% c("ReducedDimensionPlot", "AbundancePlot", 
+                                       "ComplexHeatmapPlot", "RowDataTable")) {
+                    panel_name <- gsub("^\\.panel(\\d+)$", "\\1", panel_id)
+                    update_script <- sprintf(
+                        "if(window.ShinySingleCellApp && 
+                         window.ShinySingleCellApp.panels['%s']) {
+                            window.ShinySingleCellApp.panels['%s'].requestActiveExperiment('%s');
+                         }", 
+                        panel_name, panel_name, exp_name
+                    )
+                    runjs(update_script)
+                }
+            }
+            
+            # Show confirmation
+            showNotification(
+                paste("Switched to experiment:", exp_name),
+                type = "message"
+            )
+        }
+    })
 }
