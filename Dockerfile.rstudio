@@ -1,0 +1,16 @@
+FROM rocker/rstudio:latest
+
+# Set default credentials for the rstudio user
+ENV PASSWORD=admin
+
+# Install additional R packages (optional)
+RUN R -e "install.packages(c('tidyverse', 'shiny', 'devtools', 'remotes'))"
+
+# Create a new user "admin" with password "admin"
+RUN useradd -m -s /bin/bash admin && \
+    echo "admin:admin" | chpasswd && \
+    adduser admin sudo && \
+    chown -R admin:admin /home/admin
+
+# Expose RStudio Server port
+EXPOSE 8787
