@@ -1,0 +1,23 @@
+name: Run RStudio Locally
+
+on:
+  workflow_dispatch:  
+jobs:
+  run-rstudio:
+    runs-on: self-hosted  
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build Docker image
+        run: docker build -t local-rstudio:latest .
+
+      - name: Run RStudio Server Container
+        run: |
+          docker stop rstudio-container || true
+          docker rm rstudio-container || true
+          docker run -d -p 8787:8787 --name rstudio-container local-rstudio:latest
+
+      - name: Print Access URL
+        run: echo "RStudio Server running at http://localhost:8787"
