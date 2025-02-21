@@ -2,6 +2,7 @@ name: Run RStudio Locally
 
 on:
   workflow_dispatch:  
+
 jobs:
   run-rstudio:
     runs-on: self-hosted  
@@ -10,14 +11,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Build Docker image
-        run: docker build -t local-rstudio:latest .
+      - name: Pull latest base image (optional, but ensures updates)
+        run: docker pull rocker/rstudio:latest
 
-      - name: Run RStudio Server Container
+      - name: Build Docker image
+        run: docker build -t local-rstudio:latest -f Dockerfile.rstudio .
+
+      - name: Stop and Remove Previous RStudio Container
         run: |
-          docker stop rstudio-container || true
-          docker rm rstudio-container || true
-          docker run -d -p 8787:8787 --name rstudio-container local-rstudio:latest
+          docker ps -q --filter "name=rstudio-container" | grep -q . && docker stop rstudio-container || true
+          docker ps -aq --filter "name=rstudio-container" | grep -q . && docker rm rstudio-container || true
+
+      - name: Run New RStudio Server Container
+        run: |
+          docker run -d \
+            -p 8787:8787 \
+            --name rstudio-container local-rstudio:latest
 
       - name: Print Access URL
-        run: echo "RStudio Server running at http://localhost:8787"
+        run: echo "RStudio Server running at http://localhost:8787/auth-sign-in?username=admin&password=admin"
