@@ -1,20 +1,22 @@
-name: Run RStudio Locally
+name: Run RStudio Locally (devel)
 
 on:
-  workflow_dispatch:  
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
 
 jobs:
   run-rstudio:
     runs-on: self-hosted  
 
     steps:
-      - name: Checkout repository
+      - name: Checkout devel branch
         uses: actions/checkout@v3
+        with:
+          ref: devel  # Specify the devel branch
 
-      - name: Pull latest base image (optional, but ensures updates)
+      - name: Pull latest base image (optional, ensures updates)
         run: docker pull rocker/rstudio:latest
 
-      - name: Build Docker image
+      - name: Build Docker image from devel branch
         run: docker build -t local-rstudio:latest -f Dockerfile.rstudio .
 
       - name: Stop and Remove Previous RStudio Container
