@@ -12,7 +12,7 @@
 #' @rdname landing_page
 #' @importFrom shinydashboard dashboardPage dashboardHeader dashboardSidebar
 #'   dashboardBody box
-#' @importFrom htmltools HTML br tags div tagList
+#' @importFrom htmltools HTML br tags div tagList span h4 h5 p hr
 #' @importFrom shinyjs disable
 #' @importFrom utils data
 .landing_page <- function(FUN, input, output, session) {
@@ -338,6 +338,26 @@
                             choices = c("Main" = "main"),
                             selected = "main"
                         ),
+
+
+                        # Add experiment state management section
+                        hr(),
+                        div(
+                            style = "margin-top: 10px;",
+                            h5("Experiment Transitions", style = "margin-top: 0;"),
+                            p("Panel configurations will be preserved when switching experiments.", 
+                              style = "font-size: 90%; margin-bottom: 10px;"),
+                            checkboxInput(inputId = "remember_transitions", 
+                                          label = "Remember my experiment transitions", 
+                                          value = FALSE)
+                        ),
+                        div(
+                            id = "experiment_history_panel",
+                            style = "margin-top: 10px; max-height: 150px; overflow-y: auto; border: 1px solid #eee; padding: 5px; border-radius: 3px; display: none;",
+                            h5("Transition History", style = "margin-top: 0;"),
+                            uiOutput("experiment_history")
+                        ),
+                      
                         checkboxGroupInput(
                             inputId = "altexp_panels",
                             label = "Show in Panels:",
@@ -377,6 +397,11 @@
     disable("iSEE_INTERNAL_citation_info")    # citation info
     
     rObjects <- reactiveValues(tse = NULL)
+    # Initialize experiment state management
+    rObjects$experiment_states <- .create_experiment_state_cache()
+    rObjects$experiment_history <- .create_history_tracker()
+    rObjects$panel_configurations <- .create_panel_config_storage()
+    rObjects$transition_preferences <- .create_transition_preferences()
     
     observe({
         .print_message(
@@ -403,11 +428,65 @@
     .create_estimate_observers(input, rObjects)
     .update_observers(input, session, rObjects)
 
+    .create_experiment_state_observers(input, session, rObjects)
     .create_launch_observers(FUN, input, session, rObjects)
     
     .render_overview(output, rObjects)
     .render_download(output, rObjects)
+  
+    # Add in the output renderers section, after .render_download
+    output$experiment_history <- renderUI({
+        history <- .get_history(rObjects$experiment_history)
+        if(length(history) == 0) {
+            return(p("No transitions recorded yet.", style = "font-style: italic; color: #777; text-align: center;"))
+        }
+        
+        history_items <- lapply(rev(history), function(item) {
+            time_ago <- difftime(Sys.time(), item$timestamp, units = "mins")
+            time_text <- if(time_ago < 1) {
+                "just now"
+            } else if(time_ago < 60) {
+                paste(round(time_ago), "min ago")
+            } else {
+                paste(round(time_ago/60), "hr ago")
+            }
+            
+            div(
+                class = "history-item",
+                style = "padding: 5px 0; border-bottom: 1px solid #eee;",
+                div(
+                    span(
+                        ifelse(item$from == "main", "Main", item$from),
+                        style = "font-weight: bold;"
+                    ),
+                    " → ",
+                    span(
+                        ifelse(item$to == "main", "Main", item$to),
+                        style = "font-weight: bold;"
+                    )
+                ),
+                div(
+                    time_text,
+                    style = "font-size: 80%; color: #777;"
+                )
+            )
+        })
+        
+        do.call(tagList, history_items)
+    })
 
+    # Also, adding an observer for the remember_transitions checkbox
+    observeEvent(input$remember_transitions, {
+        if (input$remember_transitions) {
+            # Show the history panel
+            shinyjs::show("experiment_history_panel")
+        } else {
+            # Hide the history panel
+            shinyjs::hide("experiment_history_panel")
+        }
+    })
+
+  
     invisible(NULL)
     # nocov end
 }
