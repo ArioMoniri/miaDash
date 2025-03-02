@@ -141,7 +141,7 @@ miaDash <- function() {
     }
     "
     
-    iSEE(
+    return(iSEE(
         landingPage = .landing_page,
         appTitle = tags$div(
             paste0("Microbiome Analysis Dashboard - v", packageVersion("miaDash")),
@@ -151,7 +151,7 @@ miaDash <- function() {
         ),
         customJS = experiment_js,
         customStyles = experiment_css
-    )
+    ))
 }
 
 #' @importFrom methods is
