@@ -8,11 +8,14 @@ RUN apt-get update && apt-get install -y libglpk-dev && apt-get clean && rm -rf 
 # Fix the corrupt pkgbuild package
 RUN R -e "if(file.exists('/usr/local/lib/R/site-library/pkgbuild/R/pkgbuild.rdb')) { remove.packages('pkgbuild'); }; install.packages('pkgbuild', repos='https://cloud.r-project.org/')"
 
+# Install BiocManager and update
+RUN R -e "if (!require('BiocManager', quietly = TRUE)) install.packages('BiocManager', repos='https://cloud.r-project.org/'); BiocManager::install(ask=FALSE)"
+
+# Install iSEEtree dependency from GitHub since it's not available in regular repositories
+RUN R -e "if (!require('remotes', quietly = TRUE)) install.packages('remotes', repos='https://cloud.r-project.org/'); remotes::install_github('iSEE/iSEEtree')"
+
 # Set environment variable to avoid warnings becoming errors
 ENV R_REMOTES_NO_ERRORS_FROM_WARNINGS=true
 
-# Install dependencies first
-RUN Rscript -e "devtools::install_deps('.', dependencies = TRUE, repos = BiocManager::repositories())"
-
-# Then install the package without building vignettes initially
-RUN Rscript -e "devtools::install('.', dependencies = FALSE, repos = BiocManager::repositories(), build_vignettes = FALSE)"
+# Install the package
+RUN Rscript -e "devtools::install('.', dependencies = TRUE, repos = BiocManager::repositories(), build_vignettes = FALSE)"
