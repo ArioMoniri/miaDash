@@ -1,14 +1,13 @@
-FROM bioconductor/bioconductor_docker:latest
-
-LABEL authors="giulio.benedetti@utu.fi" \
-    description="Docker image containing the miaDash package in a bioconductor/bioconductor_docker:devel container."
-
+FROM rocker/r-ver:4.3.1
 WORKDIR /home/rstudio/miadash
-
-COPY --chown=rstudio:rstudio . /home/rstudio/miadash
 
 RUN apt-get update && apt-get install -y libglpk-dev && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-ENV R_REMOTES_NO_ERRORS_FROM_WARNINGS=true
+# Install Bioconductor if you want 3.17
+RUN R -e "install.packages('BiocManager'); \
+           BiocManager::install(version='3.17'); \
+           BiocManager::install(c('devtools', 'mia', 'iSEE', 'iSEEtree'))" 
 
-RUN Rscript -e "devtools::install('.', dependencies = TRUE, repos = BiocManager::repositories(), build_vignettes = TRUE)"
+COPY . /home/rstudio/miadash
+
+RUN R -e "devtools::install('/home/rstudio/miadash', dependencies=TRUE, build_vignettes=TRUE)"
