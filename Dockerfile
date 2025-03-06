@@ -1,7 +1,7 @@
-FROM bioconductor/bioconductor_docker:devel
+FROM --platform=linux/amd64 bioconductor/bioconductor_docker:devel
 
 LABEL authors="giulio.benedetti@utu.fi" \
-    description="Docker image containing the miaDash package in a bioconductor/bioconductor_docker:devel container."
+      description="Docker image containing the miaDash package."
 
 WORKDIR /home/rstudio/miadash
 
