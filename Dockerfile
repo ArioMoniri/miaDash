@@ -1,6 +1,6 @@
 FROM --platform=linux/amd64 bioconductor/bioconductor_docker:devel
 
-FROM bioconductor/bioconductor_docker:devel
+
 LABEL authors="giulio.benedetti@utu.fi" \
     description="Docker image containing the miaDash package in a bioconductor container."
 
