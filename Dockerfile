@@ -5,24 +5,23 @@ LABEL authors="giulio.benedetti@utu.fi" \
 WORKDIR /home/rstudio/miadash
 COPY --chown=rstudio:rstudio . /home/rstudio/miadash
 
-# Install system dependencies
+# Install only essential system dependencies
 RUN apt-get update && apt-get install -y \
     libglpk-dev \
     libxml2-dev \
     libcurl4-openssl-dev \
     libssl-dev \
-    libhdf5-dev \
-    libgit2-dev \
-    libigraph-dev \
-    zlib1g-dev \
-    libbz2-dev \
-    liblzma-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ENV R_REMOTES_NO_ERRORS_FROM_WARNINGS=true
 
-# Install CRAN packages first
-RUN Rscript -e "options(timeout = 600); install.packages(c('igraph', 'ggnewscale', 'tidygraph'), repos = 'https://cloud.r-project.org/')"
+# Copy the package but don't install it or its dependencies
+# You can install it manually later
+RUN echo "# Manual package installation" > /home/rstudio/README.txt && \
+    echo "To install the package, run in R:" >> /home/rstudio/README.txt && \
+    echo "  BiocManager::install()" >> /home/rstudio/README.txt && \
+    echo "  BiocManager::install(c('biomformat', 'iSEE', 'mia', 'iSEEtree'))" >> /home/rstudio/README.txt && \
+    echo "  devtools::install('/home/rstudio/miadash')" >> /home/rstudio/README.txt
 
-# Install the package with dependencies
-RUN Rscript -e "options(timeout = 600); devtools::install('.', dependencies = TRUE, repos = BiocManager::repositories(), build_vignettes = FALSE)"
+# Make sure the package is accessible to the rstudio user
+RUN chown -R rstudio:rstudio /home/rstudio
