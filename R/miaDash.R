@@ -23,7 +23,7 @@
 #' @rdname miaDash
 #' @importFrom iSEE iSEE
 #' @importFrom utils packageVersion
-#' @importFrom htmltools tags
+#' @importFrom htmltools tags tagList singleton HTML
 #' @importFrom SingleCellExperiment altExp altExpNames
 miaDash <- function() {
     
@@ -141,17 +141,48 @@ miaDash <- function() {
     }
     "
     
-    return(iSEE(
+    # Create the app title
+    app_title <- tags$div(
+        paste0("Microbiome Analysis Dashboard - v", packageVersion("miaDash")),
+        tags$img(src = "assets/mia_logo.png", height = "40px", style = "margin-left: 10px"),
+        style = "cursor: pointer; font-weight: 500",
+        onclick = "window.location.href='https://miadash-microbiome.2.rahtiapp.fi/'; window.location.reload(true);"
+    )
+    
+    # Create a function that wraps iSEE and injects our custom JS and CSS
+    app <- iSEE(
         landingPage = .landing_page,
-        appTitle = tags$div(
-            paste0("Microbiome Analysis Dashboard - v", packageVersion("miaDash")),
-            tags$img(src = "assets/mia_logo.png", height = "40px", style = "margin-left: 10px"),
-            style = "cursor: pointer; font-weight: 500",
-            onclick = "window.location.href='https://miadash-microbiome.2.rahtiapp.fi/'; window.location.reload(true);"
-        ),
-        customJS = experiment_js,
-        customStyles = experiment_css
-    ))
+        appTitle = app_title
+    )
+    
+    # Access the ui function from the app
+    original_ui <- app$ui
+    
+    # Override the ui function to include our custom JS and CSS
+    app$ui <- function(request) {
+        # Get the original UI
+        ui_content <- if (is.function(original_ui)) {
+            original_ui(request)
+        } else {
+            original_ui
+        }
+        
+        # Wrap with our custom elements
+        tagList(
+            # Add custom CSS
+            singleton(tags$head(
+                tags$style(experiment_css)
+            )),
+            # Add custom JavaScript
+            singleton(tags$head(
+                tags$script(HTML(experiment_js))
+            )),
+            # Original UI content
+            ui_content
+        )
+    }
+    
+    return(app)
 }
 
 #' @importFrom methods is
@@ -367,10 +398,9 @@ miaDash <- function() {
     "
   
     # Launch iSEE with the current experiment and validated panels
-    FUN(
+    result <- FUN(
         SE = tse,
         INIT = initial,
-        customJS = experiment_selector_js,
         customCollapseBoxes = function(x, plot_name) {
             # Add experiment selector in header
             if (plot_name == 1) {
@@ -442,6 +472,24 @@ miaDash <- function() {
             return(x)
         }
     )
+    
+    # Inject the JavaScript
+    result$ui <- function(request) {
+        original_ui <- result$ui
+        ui_content <- if(is.function(original_ui)) {
+            original_ui(request)
+        } else {
+            original_ui
+        }
+        
+        tagList(
+            # Add the experiment selector JavaScript
+            singleton(tags$head(
+                tags$script(HTML(experiment_selector_js))
+            )),
+            ui_content
+        )
+    }
   
     # Enable iSEE interface buttons
     enable("iSEE_INTERNAL_organize_panels")
@@ -453,7 +501,7 @@ miaDash <- function() {
     enable("iSEE_INTERNAL_session_info")
     enable("iSEE_INTERNAL_citation_info") 
   
-    invisible(NULL)
+    return(result)
     # nocov end
 }
 
