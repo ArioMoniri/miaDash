@@ -1,4 +1,5 @@
 FROM --platform=linux/amd64 bioconductor/bioconductor_docker:RELEASE_3_17
+
 LABEL authors="giulio.benedetti@utu.fi" \
     description="Docker image containing the miaDash package in a bioconductor container."
 WORKDIR /home/rstudio/miadash
@@ -19,10 +20,9 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ENV R_REMOTES_NO_ERRORS_FROM_WARNINGS=true
-ENV BIOCONDUCTOR_USE_CONTAINER_REPOSITORY=FALSE
 
-# Install package with all dependencies in binary form if available
-RUN Rscript -e "options(timeout = 600, repos = BiocManager::repositories()); \
-    pkg_deps <- tools::package_dependencies('miaDash', recursive = TRUE, db = available.packages())[[1]]; \
-    BiocManager::install(pkg_deps, update = FALSE, ask = FALSE, type = 'binary'); \
-    devtools::install('.', dependencies = FALSE, build_vignettes = FALSE)"
+# Install CRAN packages first
+RUN Rscript -e "options(timeout = 600); install.packages(c('igraph', 'ggnewscale', 'tidygraph'), repos = 'https://cloud.r-project.org/')"
+
+# Install the package with dependencies
+RUN Rscript -e "options(timeout = 600); devtools::install('.', dependencies = TRUE, repos = BiocManager::repositories(), build_vignettes = FALSE)"
