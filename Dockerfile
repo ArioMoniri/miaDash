@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y \
 
 ENV R_REMOTES_NO_ERRORS_FROM_WARNINGS=true
 
-# Try installing the package dependencies first
-RUN Rscript -e "devtools::install_deps('.', dependencies = TRUE, repos = BiocManager::repositories())"
+# Install Bioconductor dependencies explicitly
+RUN Rscript -e "BiocManager::install(c('iSEE', 'biomformat', 'iSEEtree', 'mia', 'scater'), update = FALSE, ask = FALSE)"
 
-# Then install the package itself (without building vignettes at first to isolate issues)
-RUN Rscript -e "devtools::install('.', dependencies = FALSE, repos = BiocManager::repositories(), build_vignettes = FALSE)"
+# Then install the package dependencies and the package itself
+RUN Rscript -e "devtools::install('.', dependencies = TRUE, repos = BiocManager::repositories(), build_vignettes = FALSE)"
