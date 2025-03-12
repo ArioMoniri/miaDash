@@ -607,7 +607,7 @@
 #' @importFrom SummarizedExperiment assayNames
 #' @importFrom mia taxonomyRanks
 #' @importFrom rintrojs introjs
-.update_observers <- function(input, session, rObjects){
+.update_observers <- function(input, session, rObjects, output = NULL){
   
     # nocov start
     observe({
