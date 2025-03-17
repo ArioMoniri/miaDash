@@ -313,10 +313,11 @@
 
 
 #' @rdname create_observers
-#' @importFrom shiny observeEvent isolate req showModal modalDialog removeModal actionButton modalButton
-#' @importFrom htmltools tags p div strong
-#' @importFrom shinyjs show hide
-.create_experiment_state_observers <- function(input, session, rObjects) {
+#' @param output The Shiny output object from the server function, defaults to NULL.
+#' @importFrom SummarizedExperiment assayNames
+#' @importFrom mia taxonomyRanks
+#' @importFrom rintrojs introjs
+.update_observers <- function(input, session, rObjects, output = NULL){
   
     # Check if already initialized and only initialize if needed
     if(!exists("experiment_states", rObjects)) {
