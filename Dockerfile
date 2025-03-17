@@ -45,8 +45,7 @@ RUN Rscript -e "options(repos = BiocManager::repositories()); \
 # Copy package files
 COPY --chown=rstudio:rstudio . /home/rstudio/miadash
 
-# Run document() to update Rd files before installation
-RUN Rscript -e "setwd('/home/rstudio/miadash'); devtools::document()"
+
 
 # Install the package with minimal memory usage
 RUN Rscript -e "options(repos = BiocManager::repositories()); \
