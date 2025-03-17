@@ -57,5 +57,4 @@ RUN Rscript -e "options(repos = BiocManager::repositories()); \
 # Build vignettes separately if needed (optional)
 # RUN Rscript -e "devtools::build_vignettes('/home/rstudio/miadash')"
 
-# Expose port 8787 for RStudio Server
-EXPOSE 8787
+
