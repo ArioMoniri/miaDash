@@ -6,32 +6,41 @@ LABEL authors="giulio.benedetti@utu.fi" \
 # Set the working directory
 WORKDIR /home/rstudio/miadash
 
+# Set environment variables
+ENV R_REMOTES_NO_ERRORS_FROM_WARNINGS=true
+ENV PASSWORD=bioc
+# Limit number of parallel processes to reduce memory usage
+ENV MAKEFLAGS="-j2"
+# Set memory limit for R processes
+ENV R_MAX_VSIZE=4Gb
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     libglpk-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Set environment variables to improve build speed
-ENV R_REMOTES_NO_ERRORS_FROM_WARNINGS=true
-ENV MAKEFLAGS="-j$(nproc)"
-ENV PASSWORD=bioc
+# Install Bioconductor dependencies one at a time to reduce memory usage
+RUN Rscript -e "options(repos = BiocManager::repositories()); \
+    install.packages('matrixStats'); \
+    BiocManager::install('MatrixGenerics', update = FALSE, ask = FALSE)"
 
-# Install Bioconductor dependencies before copying package files
-# This creates a separate cache layer for dependencies, improving rebuild times
-RUN Rscript -e "BiocManager::install(c(\
-    'MatrixGenerics', \
-    'matrixStats', \
-    'SparseArray', \
-    'DelayedArray', \
-    'SummarizedExperiment', \
-    'SingleCellExperiment', \
-    'iSEE', \
-    'miaViz', \
-    'mia', \
-    'TreeSummarizedExperiment', \
-    'iSEEtree', \
-    'ComplexHeatmap'), \
-    update = FALSE, ask = FALSE)"
+RUN Rscript -e "options(repos = BiocManager::repositories()); \
+    BiocManager::install(c('SparseArray', 'DelayedArray'), update = FALSE, ask = FALSE)"
+
+RUN Rscript -e "options(repos = BiocManager::repositories()); \
+    BiocManager::install('SummarizedExperiment', update = FALSE, ask = FALSE)"
+
+RUN Rscript -e "options(repos = BiocManager::repositories()); \
+    BiocManager::install('SingleCellExperiment', update = FALSE, ask = FALSE)"
+
+RUN Rscript -e "options(repos = BiocManager::repositories()); \
+    BiocManager::install(c('TreeSummarizedExperiment', 'ComplexHeatmap'), update = FALSE, ask = FALSE)"
+
+RUN Rscript -e "options(repos = BiocManager::repositories()); \
+    BiocManager::install(c('iSEE', 'mia'), update = FALSE, ask = FALSE)"
+
+RUN Rscript -e "options(repos = BiocManager::repositories()); \
+    BiocManager::install(c('miaViz', 'iSEEtree'), update = FALSE, ask = FALSE)"
 
 # Copy package files
 COPY --chown=rstudio:rstudio . /home/rstudio/miadash
@@ -39,15 +48,15 @@ COPY --chown=rstudio:rstudio . /home/rstudio/miadash
 # Run document() to update Rd files before installation
 RUN Rscript -e "setwd('/home/rstudio/miadash'); devtools::document()"
 
-# Install the package
-RUN Rscript -e "devtools::install('/home/rstudio/miadash', \
+# Install the package with minimal memory usage
+RUN Rscript -e "options(repos = BiocManager::repositories()); \
+    devtools::install('/home/rstudio/miadash', \
     dependencies = TRUE, \
-    repos = BiocManager::repositories(), \
-    build_vignettes = TRUE, \
+    build_vignettes = FALSE, \
     quiet = TRUE)"
+
+# Build vignettes separately if needed (optional)
+# RUN Rscript -e "devtools::build_vignettes('/home/rstudio/miadash')"
 
 # Expose port 8787 for RStudio Server
 EXPOSE 8787
-
-# The rocker/rstudio images already have the CMD set up to start RStudio Server
-# So we don't need to override the CMD
