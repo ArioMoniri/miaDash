@@ -604,6 +604,7 @@
                  
                  
 #' @rdname create_observers
+#' @param output The Shiny output object from the server function, defaults to NULL.
 #' @importFrom SummarizedExperiment assayNames
 #' @importFrom mia taxonomyRanks
 #' @importFrom rintrojs introjs
