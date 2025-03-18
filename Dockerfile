@@ -26,8 +26,15 @@ RUN Rscript -e "options(repos = BiocManager::repositories()); \
     install.packages(c('devtools', 'remotes', 'BiocManager')); \
     BiocManager::install(version = 'devel', ask = FALSE, update = TRUE);"
 
+RUN Rscript -e "options(repos = BiocManager::repositories()); \
+    BiocManager::install('biomformat', dependencies = TRUE, ask = FALSE); \
+    BiocManager::install('rhdf5', dependencies = TRUE, ask = FALSE);"
 
 
+RUN Rscript -e "options(repos = BiocManager::repositories()); \
+    BiocManager::install('biomformat', dependencies = TRUE, ask = FALSE); \
+    BiocManager::install('rhdf5', dependencies = TRUE, ask = FALSE);"
+    
 # Install mia (another key dependency)
 RUN Rscript -e "options(repos = BiocManager::repositories()); \
     BiocManager::install('mia', dependencies = TRUE, ask = FALSE);"
