@@ -311,12 +311,16 @@
 }
 
 #' @rdname utils
-.create_experiment_snapshot <- function(tse, exp_name, panel_config) {
-  return(list(
+.create_experiment_snapshot <- function(experiment_states, exp_name, panel_config) {
+  experiment_states[[exp_name]] <- list(
     timestamp = Sys.time(),
     panel_config = panel_config,
-    metadata = .get_experiment_metadata(tse, exp_name)
-  ))
+    metadata = list(
+      name = exp_name,
+      last_visited = Sys.time()
+    )
+  )
+  return(invisible(NULL))
 }
 
 #' @rdname utils
