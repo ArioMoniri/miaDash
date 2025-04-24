@@ -428,7 +428,6 @@
     .create_estimate_observers(input, rObjects)
     .update_observers(input, session, rObjects, output)
 
-    .create_experiment_state_observers(input, session, rObjects)
     .create_launch_observers(FUN, input, session, rObjects)
     
     .render_overview(output, rObjects)
