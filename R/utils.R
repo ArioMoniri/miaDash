@@ -247,8 +247,16 @@
 .check_experiment_panel_compatibility <- function(se, exp_name, panel_class) {
     # Define panel compatibility rules
     compatibility_rules <- list(
-        "RowTreePlot" = function(exp) !is.null(rowTree(exp)),
-        "ColumnTreePlot" = function(exp) !is.null(colTree(exp)),
+        "RowTreePlot" = function(exp) {
+          exists("rowTree", where = asNamespace("TreeSummarizedExperiment")) && 
+          inherits(exp, "TreeSummarizedExperiment") && 
+          !is.null(rowTree(exp))
+        },
+        "ColumnTreePlot" = function(exp) {
+          exists("colTree", where = asNamespace("TreeSummarizedExperiment")) && 
+          inherits(exp, "TreeSummarizedExperiment") && 
+          !is.null(tryCatch(colTree(exp), error = function(e) NULL))
+        },
         "ReducedDimensionPlot" = function(exp) {
             is(exp, "SingleCellExperiment") && length(reducedDimNames(exp)) > 0
         },
