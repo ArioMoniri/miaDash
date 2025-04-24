@@ -312,97 +312,7 @@
 }
 
 
-#' @rdname create_observers
-#' @param output The Shiny output object from the server function, defaults to NULL.
-#' @importFrom SummarizedExperiment assayNames
-#' @importFrom mia taxonomyRanks
-#' @importFrom rintrojs introjs
-.update_observers <- function(input, session, rObjects, output = NULL){
-  
-    # Check if already initialized and only initialize if needed
-    if(!exists("experiment_states", rObjects)) {
-        rObjects$experiment_states <- .create_experiment_state_cache()
-        rObjects$experiment_history <- .create_history_tracker()
-        rObjects$panel_configurations <- .create_panel_config_storage()
-        rObjects$transition_preferences <- .create_transition_preferences()
-    }
-    
-    # When an experiment is selected for switching
-    observeEvent(input$iSEE_switch_experiment, {
-        req(input$iSEE_switch_experiment)
-        isolate({
-            current_exp <- mainExpName(rObjects$tse)
-            if(is.null(current_exp)) current_exp <- "main"
-            target_exp <- input$iSEE_switch_experiment
-            
-            # Only proceed if it's actually a different experiment
-            if(current_exp != target_exp) {
-                # Verify target experiment exists
-                if(target_exp != "main" && !(target_exp %in% altExpNames(rObjects$tse))) {
-                    showNotification(
-                        paste("Error: Experiment", target_exp, "not found."),
-                        type = "error"
-                    )
-                    return(NULL)
-                }
-                
-                # Check if confirmation is needed
-                if(.needs_confirmation(rObjects$transition_preferences, current_exp, target_exp)) {
-                    .confirm_experiment_transition(session, rObjects, current_exp, target_exp)
-                } else {
-                    # No confirmation needed, switch directly
-                    .perform_experiment_switch(rObjects, current_exp, target_exp)
-                }
-            }
-        })
-    }, ignoreInit = TRUE)
-    
-    # Observe panel configuration changes
-    observeEvent(input$panel_config_changed, {
-        req(input$panel_config_changed)
-        isolate({
-            panel_data <- input$panel_config_changed
-            current_exp <- mainExpName(rObjects$tse)
-            if(is.null(current_exp)) current_exp <- "main"
-            
-            .save_panel_config(
-                rObjects$panel_configurations, 
-                current_exp, 
-                panel_data$panel_id, 
-                panel_data$config
-            )
-        })
-    }, ignoreInit = TRUE)
-    
-    # For undo/redo history navigation
-    observeEvent(input$undo_experiment_switch, {
-        isolate({
-            history <- .get_history(rObjects$experiment_history)
-            if(length(history) > 0) {
-                last_step <- history[[length(history)]]
-                .perform_experiment_switch(rObjects, 
-                                          last_step$to, 
-                                          last_step$from, 
-                                          record_history = FALSE)
-                # Remove the last step from history
-                rObjects$experiment_history(history[-length(history)])
-            }
-        })
-    }, ignoreInit = TRUE)
-    
-    # Observer for the remember_transitions checkbox
-    observeEvent(input$remember_transitions, {
-        if (input$remember_transitions) {
-            # Show the history panel
-            shinyjs::show("experiment_history_panel")
-        } else {
-            # Hide the history panel
-            shinyjs::hide("experiment_history_panel")
-        }
-    }, ignoreInit = TRUE)
-    
-    invisible(NULL)
-}
+
 
 # Helper functions for experiment state management
 
@@ -610,6 +520,91 @@
 #' @importFrom mia taxonomyRanks
 #' @importFrom rintrojs introjs
 .update_observers <- function(input, session, rObjects, output = NULL){
+
+
+        # Check if already initialized and only initialize if needed
+    if(!exists("experiment_states", rObjects)) {
+        rObjects$experiment_states <- .create_experiment_state_cache()
+        rObjects$experiment_history <- .create_history_tracker()
+        rObjects$panel_configurations <- .create_panel_config_storage()
+        rObjects$transition_preferences <- .create_transition_preferences()
+    }
+
+
+    # When an experiment is selected for switching
+    observeEvent(input$iSEE_switch_experiment, {
+        req(input$iSEE_switch_experiment)
+        isolate({
+            current_exp <- mainExpName(rObjects$tse)
+            if(is.null(current_exp)) current_exp <- "main"
+            target_exp <- input$iSEE_switch_experiment
+            
+            # Only proceed if it's actually a different experiment
+            if(current_exp != target_exp) {
+                # Verify target experiment exists
+                if(target_exp != "main" && !(target_exp %in% altExpNames(rObjects$tse))) {
+                    showNotification(
+                        paste("Error: Experiment", target_exp, "not found."),
+                        type = "error"
+                    )
+                    return(NULL)
+                }
+                
+                # Check if confirmation is needed
+                if(.needs_confirmation(rObjects$transition_preferences, current_exp, target_exp)) {
+                    .confirm_experiment_transition(session, rObjects, current_exp, target_exp)
+                } else {
+                    # No confirmation needed, switch directly
+                    .perform_experiment_switch(rObjects, current_exp, target_exp)
+                }
+            }
+        })
+    }, ignoreInit = TRUE)
+
+
+        # Observe panel configuration changes
+    observeEvent(input$panel_config_changed, {
+        req(input$panel_config_changed)
+        isolate({
+            panel_data <- input$panel_config_changed
+            current_exp <- mainExpName(rObjects$tse)
+            if(is.null(current_exp)) current_exp <- "main"
+            
+            .save_panel_config(
+                rObjects$panel_configurations, 
+                current_exp, 
+                panel_data$panel_id, 
+                panel_data$config
+            )
+        })
+    }, ignoreInit = TRUE)
+    
+    # For undo/redo history navigation
+    observeEvent(input$undo_experiment_switch, {
+        isolate({
+            history <- .get_history(rObjects$experiment_history)
+            if(length(history) > 0) {
+                last_step <- history[[length(history)]]
+                .perform_experiment_switch(rObjects, 
+                                          last_step$to, 
+                                          last_step$from, 
+                                          record_history = FALSE)
+                # Remove the last step from history
+                rObjects$experiment_history(history[-length(history)])
+            }
+        })
+    }, ignoreInit = TRUE)
+    
+    # Observer for the remember_transitions checkbox
+    observeEvent(input$remember_transitions, {
+        if (input$remember_transitions) {
+            # Show the history panel
+            shinyjs::show("experiment_history_panel")
+        } else {
+            # Hide the history panel
+            shinyjs::hide("experiment_history_panel")
+        }
+    }, ignoreInit = TRUE)
   
     # nocov start
     observe({
