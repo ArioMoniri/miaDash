@@ -398,98 +398,13 @@ miaDash <- function() {
     "
   
     # Launch iSEE with the current experiment and validated panels
-    result <- FUN(
+    FUN(
         SE = tse,
         INIT = initial,
-        customCollapseBoxes = function(x, plot_name) {
-            # Add experiment selector in header
-            if (plot_name == 1) {
-                # Create experiment choices
-                all_experiments <- c("Main" = "main")
-                if(length(altExpNames(tse)) > 0) {
-                    all_experiments <- c(all_experiments, 
-                                       setNames(altExpNames(tse), paste("Alt:", altExpNames(tse))))
-                }
-                
-                experiment_ui <- tags$div(
-                    class = "experiment-management-container",
-                    style = "display: flex; align-items: center; justify-content: space-between; width: 100%;",
-                    # Left: current experiment info
-                    tags$div(
-                        class = "current-experiment-info",
-                        tags$span(
-                            class = "experiment-label",
-                            style = "margin-right: 5px; font-weight: bold;",
-                            "Experiment:"
-                        )
-                    ),
-                    # Center: experiment selector
-                    tags$div(
-                        class = "experiment-selector-wrapper",
-                        style = "flex-grow: 1; max-width: 300px; margin: 0 10px;",
-                        selectInput(
-                            inputId = "iSEE_INTERNAL_experiment_selector",
-                            label = NULL,
-                            choices = all_experiments,
-                            selected = exp_name,
-                            width = "100%"
-                        ),
-                        # Transition indicator
-                        tags$div(
-                            class = "experiment-transition-indicator",
-                            style = "position: absolute; top: 0; left: 0; right: 0; height: 3px; background-color: #4CAF50; display: none;"
-                        )
-                    ),
-                    # Right: history controls
-                    tags$div(
-                        class = "experiment-history-controls",
-                        style = "display: flex;",
-                        actionButton(
-                            "undo_experiment_switch",
-                            label = NULL,
-                            icon = icon("undo"),
-                            class = "btn-sm",
-                            title = "Undo experiment switch (Alt+Z)",
-                            style = "margin-right: 5px;"
-                        ),
-                        actionButton(
-                            "redo_experiment_switch",
-                            label = NULL,
-                            icon = icon("redo"),
-                            class = "btn-sm",
-                            title = "Redo experiment switch (Alt+Y)"
-                        )
-                    )
-                )
-                
-                return(tags$div(
-                    class = "experiment-header-wrapper",
-                    experiment_ui,
-                    hr(style = "margin: 10px 0;"),
-                    x
-                ))
-            }
-            return(x)
-        }
+        customJS = experiment_selector_js
     )
     
-    # Inject the JavaScript
-    result$ui <- function(request) {
-        original_ui <- result$ui
-        ui_content <- if(is.function(original_ui)) {
-            original_ui(request)
-        } else {
-            original_ui
-        }
-        
-        tagList(
-            # Add the experiment selector JavaScript
-            singleton(tags$head(
-                tags$script(HTML(experiment_selector_js))
-            )),
-            ui_content
-        )
-    }
+
   
     # Enable iSEE interface buttons
     enable("iSEE_INTERNAL_organize_panels")
@@ -501,7 +416,7 @@ miaDash <- function() {
     enable("iSEE_INTERNAL_session_info")
     enable("iSEE_INTERNAL_citation_info") 
   
-    return(result)
+    invisible(NULL)
     # nocov end
 }
 
