@@ -674,9 +674,10 @@
     })
     
     output$current_experiment_meta <- renderUI({
-        if(!isS4(rObjects$tse)) {
-            return(p("Please import a dataset first."))
-        }
+      req(rObjects$tse)
+      if(!isS4(rObjects$tse)) {
+        return(p("Please import a dataset first."))
+      }
         
         current_main <- mainExpName(rObjects$tse)
         if(is.null(current_main)) current_main <- "main"
@@ -694,12 +695,15 @@
         )
         
         if(inherits(exp_obj, "TreeSummarizedExperiment")) {
-            if(!is.null(rowTree(exp_obj))) {
-                meta <- c(meta, "rowTree: available")
-            }
-            if(!is.null(colTree(exp_obj))) {
-                meta <- c(meta, "colTree: available")
-            }
+          # Add additional defensive checks
+          if(exists("rowTree", where = asNamespace("TreeSummarizedExperiment")) && 
+             !is.null(rowTree(exp_obj))) {
+            meta <- c(meta, "rowTree: available")
+          }
+          if(exists("colTree", where = asNamespace("TreeSummarizedExperiment")) && 
+             !is.null(tryCatch(colTree(exp_obj), error = function(e) NULL))) {
+            meta <- c(meta, "colTree: available")
+          }
         }
         
         if(inherits(exp_obj, "SingleCellExperiment") && 
@@ -753,7 +757,7 @@
     
     # Observer for global experiment selector
     observeEvent(input$global_experiment_selector, {
-        req(input$global_experiment_selector)
+        req(input$global_experiment_selector, rObjects$tse)
         if(isS4(rObjects$tse) && 
            input$global_experiment_selector != mainExpName(rObjects$tse)) {
             # Update the switch experiment selector to match
