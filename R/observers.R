@@ -757,15 +757,28 @@
     
     # Observer for global experiment selector
     observeEvent(input$global_experiment_selector, {
-        req(input$global_experiment_selector, rObjects$tse)
-        if(isS4(rObjects$tse) && 
-           input$global_experiment_selector != mainExpName(rObjects$tse)) {
-            # Update the switch experiment selector to match
-            updateSelectInput(session, "switch_experiment", 
-                             selected = input$global_experiment_selector)
-            # Trigger the switch
-            simulateClick("do_switch")
+      # Only proceed if we have a valid experiment selector value and a valid TSE object
+      req(input$global_experiment_selector)
+      req(rObjects$tse)
+      
+      # Make sure TSE is properly initialized and has the mainExpName function
+      if(isS4(rObjects$tse) && !is.null(rObjects$tse)) {
+        # Safely get the current main experiment name
+        current_main <- tryCatch({
+          mainExpName(rObjects$tse)
+        }, error = function(e) {
+          return("main")
+        })
+        
+        # Only switch if it's different from the current one
+        if(!is.null(current_main) && input$global_experiment_selector != current_main) {
+          # Update the switch experiment selector to match
+          updateSelectInput(session, "switch_experiment", 
+                           selected = input$global_experiment_selector)
+          # Trigger the switch
+          simulateClick("do_switch")
         }
+      }
     }, ignoreInit = TRUE)
     
     # Observer to sync experiment selection
