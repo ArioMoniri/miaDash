@@ -532,33 +532,34 @@
 
 
     # When an experiment is selected for switching
+    # Add this immediately after launching iSEE but before the return statement
     observeEvent(input$iSEE_switch_experiment, {
         req(input$iSEE_switch_experiment)
-        isolate({
-            current_exp <- mainExpName(rObjects$tse)
-            if(is.null(current_exp)) current_exp <- "main"
-            target_exp <- input$iSEE_switch_experiment
-            
-            # Only proceed if it's actually a different experiment
-            if(current_exp != target_exp) {
-                # Verify target experiment exists
-                if(target_exp != "main" && !(target_exp %in% altExpNames(rObjects$tse))) {
-                    showNotification(
-                        paste("Error: Experiment", target_exp, "not found."),
-                        type = "error"
-                    )
-                    return(NULL)
-                }
-                
-                # Check if confirmation is needed
-                if(.needs_confirmation(rObjects$transition_preferences, current_exp, target_exp)) {
-                    .confirm_experiment_transition(session, rObjects, current_exp, target_exp)
-                } else {
-                    # No confirmation needed, switch directly
-                    .perform_experiment_switch(rObjects, current_exp, target_exp)
-                }
-            }
-        })
+        exp_name <- input$iSEE_switch_experiment
+        
+        # Get the appropriate experiment
+        if (exp_name == "main") {
+            current_exp <- rObjects$tse
+        } else {
+            tryCatch({
+                current_exp <- altExp(rObjects$tse, exp_name)
+            }, error = function(e) {
+                showNotification(
+                    paste("Error switching to experiment:", exp_name), 
+                    type = "error"
+                )
+                return(NULL)
+            })
+        }
+        
+        if (!is.null(current_exp)) {
+            mainExpName(rObjects$tse) <- exp_name
+            # Show confirmation
+            showNotification(
+                paste("Switched to experiment:", exp_name),
+                type = "message"
+            )
+        }
     }, ignoreInit = TRUE)
 
 
