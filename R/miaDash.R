@@ -400,12 +400,154 @@ miaDash <- function() {
     # Launch iSEE with the current experiment and validated panels
     FUN(
         SE = tse,
-        INIT = initial,
-        customJS = experiment_selector_js
+        INIT = initial
     )
     
 
   
+    shinyjs::runjs(paste0("
+    window.iSEEApp = window.iSEEApp || {};
+    
+    // Initialize panel tracking
+    window.iSEEApp.panels = {};
+    
+    // Register panels when they're created
+    $(document).on('iSEE:panelCreated', function(event, panelId, panelType) {
+        window.iSEEApp.panels[panelId] = {
+            type: panelType,
+            config: {}
+        };
+    });
+    
+    // Track panel configuration changes
+    $(document).on('iSEE:panelSettingsChanged', function(event, panelId, settings) {
+        if (window.iSEEApp.panels[panelId]) {
+            window.iSEEApp.panels[panelId].config = settings;
+            Shiny.setInputValue('panel_config_changed', {
+                panel_id: panelId,
+                config: settings
+            });
+        }
+    });
+    
+    // Panel reconfiguration for experiment switching
+    window.iSEEApp.reconfigurePanels = function(experimentName) {
+        var expName = experimentName || $('#iSEE_INTERNAL_experiment_selector').val();
+        
+        // For each panel in the current view
+        for (var panelId in window.iSEEApp.panels) {
+            var panelType = window.iSEEApp.panels[panelId].type;
+            
+            // Request panel-specific reconfiguration from server
+            Shiny.setInputValue('reconfigure_panel', {
+                panel_id: panelId,
+                panel_type: panelType,
+                experiment: expName
+            });
+            
+            // Update experiment reference attribute if panel has it
+            $('.panel[data-panel-id=\"' + panelId + '\"]')
+                .attr('data-experiment', expName);
+        }
+        
+        // Show transition indicator
+        $('.experiment-transition-indicator').fadeIn(200).delay(500).fadeOut(200);
+    };
+    
+    // Handle experiment selector changes
+    $(document).on('change', '#iSEE_INTERNAL_experiment_selector', function() {
+        var selectedExp = $(this).val();
+        Shiny.setInputValue('iSEE_switch_experiment', selectedExp);
+    });
+    
+    // Add keyboard shortcuts
+    $(document).keydown(function(e) {
+        // Alt+E to focus experiment selector
+        if (e.altKey && e.keyCode === 69) { // 'E' key
+            e.preventDefault();
+            $('#iSEE_INTERNAL_experiment_selector').focus();
+        }
+        
+        // Alt+Z for undo experiment switch
+        if (e.altKey && e.keyCode === 90) { // 'Z' key
+            e.preventDefault();
+            $('#undo_experiment_switch').click();
+        }
+        
+        // Alt+Y for redo experiment switch
+        if (e.altKey && e.keyCode === 89) { // 'Y' key
+            e.preventDefault();
+            $('#redo_experiment_switch').click();
+        }
+    });
+    
+    // Add experiment selector UI to the iSEE interface
+    // This needs to be done after the iSEE app is loaded
+    setTimeout(function() {
+        // Create experiment choices
+        var all_experiments = {'Main': 'main'};
+        ", ifelse(length(altExpNames(tse)) > 0, 
+           paste0("var alt_exps = ['", paste(altExpNames(tse), collapse = \"','\"), "'];",
+                 "alt_exps.forEach(function(exp) { all_experiments['Alt: ' + exp] = exp; });"), 
+           ""), "
+        
+        // Find the first panel's header
+        var firstPanelHeader = $('.panel-heading').first();
+        if (firstPanelHeader.length) {
+            // Create the experiment selector UI
+            var experimentUI = $('<div class=\"experiment-management-container\" style=\"display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 10px;\"></div>');
+            
+            // Left: current experiment info
+            experimentUI.append('<div class=\"current-experiment-info\"><span class=\"experiment-label\" style=\"margin-right: 5px; font-weight: bold;\">Experiment:</span></div>');
+            
+            // Center: experiment selector
+            var selectorWrapper = $('<div class=\"experiment-selector-wrapper\" style=\"flex-grow: 1; max-width: 300px; margin: 0 10px;\"></div>');
+            var selector = $('<select id=\"iSEE_INTERNAL_experiment_selector\" class=\"form-control\" style=\"width: 100%;\"></select>');
+            
+            // Add options to selector
+            Object.keys(all_experiments).forEach(function(label) {
+                var value = all_experiments[label];
+                var option = $('<option></option>').attr('value', value).text(label);
+                if (value === '", exp_name, "') {
+                    option.attr('selected', 'selected');
+                }
+                selector.append(option);
+            });
+            
+            selectorWrapper.append(selector);
+            selectorWrapper.append('<div class=\"experiment-transition-indicator\" style=\"position: absolute; top: 0; left: 0; right: 0; height: 3px; background-color: #4CAF50; display: none;\"></div>');
+            experimentUI.append(selectorWrapper);
+            
+            // Right: history controls
+            var historyControls = $('<div class=\"experiment-history-controls\" style=\"display: flex;\"></div>');
+            historyControls.append('<button id=\"undo_experiment_switch\" class=\"btn btn-sm\" title=\"Undo experiment switch (Alt+Z)\" style=\"margin-right: 5px;\"><i class=\"fa fa-undo\"></i></button>');
+            historyControls.append('<button id=\"redo_experiment_switch\" class=\"btn btn-sm\" title=\"Redo experiment switch (Alt+Y)\"><i class=\"fa fa-redo\"></i></button>');
+            experimentUI.append(historyControls);
+            
+            // Create wrapper and insert before the panel title
+            var wrapper = $('<div class=\"experiment-header-wrapper\"></div>');
+            wrapper.append(experimentUI);
+            wrapper.append('<hr style=\"margin: 10px 0;\">');
+            
+            // Insert at the beginning of the panel heading
+            firstPanelHeader.prepend(wrapper);
+            
+            // Initialize the selector with Selectize
+            $('#iSEE_INTERNAL_experiment_selector').selectize({
+                dropdownParent: 'body'
+            });
+            
+            // Set up click handlers for history buttons
+            $('#undo_experiment_switch').on('click', function() {
+                Shiny.setInputValue('undo_experiment_switch', Math.random());
+            });
+            $('#redo_experiment_switch').on('click', function() {
+                Shiny.setInputValue('redo_experiment_switch', Math.random());
+            });
+        }
+    }, 1000); // Wait 1 second for iSEE to fully initialize
+    "))
+    
     # Enable iSEE interface buttons
     enable("iSEE_INTERNAL_organize_panels")
     enable("iSEE_INTERNAL_link_graph")
@@ -414,8 +556,9 @@ miaDash <- function() {
     enable("iSEE_INTERNAL_panel_settings")
     enable("iSEE_INTERNAL_open_vignette")
     enable("iSEE_INTERNAL_session_info")
-    enable("iSEE_INTERNAL_citation_info") 
-  
+    enable("iSEE_INTERNAL_citation_info")
+
+    .handle_isee_experiment_switch(session, input, output, tse)
     invisible(NULL)
     # nocov end
 }
