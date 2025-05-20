@@ -19,12 +19,15 @@
 #'
 #' @name miaDash
 
+
 #' @export
 #' @rdname miaDash
 #' @importFrom iSEE iSEE
 #' @importFrom utils packageVersion
 #' @importFrom htmltools tags tagList singleton HTML
 #' @importFrom SingleCellExperiment altExp altExpNames
+#' @importFrom shinyjs runjs enable
+
 miaDash <- function() {
     
     addResourcePath("assets", system.file("assets", package = "miaDash"))
