@@ -490,7 +490,7 @@ miaDash <- function() {
         // Create experiment choices
         var all_experiments = {'Main': 'main'};
         ", ifelse(length(altExpNames(tse)) > 0, 
-           paste0("var alt_exps = ['", paste(altExpNames(tse), collapse = \"','\"), "'];",
+           paste0("var alt_exps = ['", paste(altExpNames(tse), collapse = "','"), "'];",
                  "alt_exps.forEach(function(exp) { all_experiments['Alt: ' + exp] = exp; });"), 
            ""), "
         
